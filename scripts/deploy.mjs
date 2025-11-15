@@ -2,7 +2,22 @@ import { copyFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 
 const PLUGIN_NAME = "narrator";
-const OBSIDIAN_PLUGINS_PATH = "/home/joe/TrueNasMedia/Obsidian/Narrator Plugin/.obsidian/plugins";
+
+// Get vault path from command line argument or environment variable
+const vaultPath = process.argv[2] || process.env.OBSIDIAN_VAULT_PATH;
+
+if (!vaultPath) {
+	console.error("Error: No vault path provided!");
+	console.error("\nUsage:");
+	console.error("  pnpm run deploy <path-to-vault>");
+	console.error("\nOr set environment variable:");
+	console.error("  export OBSIDIAN_VAULT_PATH='/path/to/vault'");
+	console.error("\nExample:");
+	console.error("  pnpm run deploy '/Users/joe/Obsidian/MyVault'");
+	process.exit(1);
+}
+
+const OBSIDIAN_PLUGINS_PATH = join(vaultPath, ".obsidian", "plugins");
 const TARGET_DIR = join(OBSIDIAN_PLUGINS_PATH, PLUGIN_NAME);
 
 // Files to copy

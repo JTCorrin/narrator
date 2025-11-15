@@ -2,10 +2,12 @@ import { Notice, Plugin, TFile, Editor, MarkdownView, MarkdownFileInfo, Menu } f
 import { NarratorSettingTab } from "./settings";
 import { NarratorSettings, DEFAULT_SETTINGS } from "./types";
 import { initApiClient, apiClient, NarratorApiError, VoiceType } from "./api";
+import { AudioPlayerStatusBar } from "./components/AudioPlayerStatusBar";
 
 export default class NarratorPlugin extends Plugin {
 	settings!: NarratorSettings;
 	cachedVoices: VoiceType[] = [];
+	statusBarPlayer: AudioPlayerStatusBar | null = null;
 
 	async onload() {
 		console.log("Loading Narrator plugin");
@@ -28,6 +30,9 @@ export default class NarratorPlugin extends Plugin {
 			this.app.workspace.onLayoutReady(() => this.loadVoicesAsync());
 		}
 
+		// Initialize audio player status bar
+		this.initializeStatusBar();
+
 		// Register context menu events
 		this.registerWorkspaceEvents();
 
@@ -37,6 +42,11 @@ export default class NarratorPlugin extends Plugin {
 
 	onunload() {
 		console.log("Unloading Narrator plugin");
+
+		// Clean up status bar player
+		if (this.statusBarPlayer) {
+			this.statusBarPlayer.destroy();
+		}
 	}
 
 	private registerWorkspaceEvents() {
@@ -86,6 +96,12 @@ export default class NarratorPlugin extends Plugin {
 				}
 			})
 		);
+	}
+
+	private initializeStatusBar() {
+		const statusBarContainer = this.addStatusBarItem();
+		this.statusBarPlayer = new AudioPlayerStatusBar(statusBarContainer, this);
+		console.log("Audio player status bar initialized");
 	}
 
 	private addCommands() {
