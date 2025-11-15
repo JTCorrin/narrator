@@ -1,8 +1,10 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type NarratorPlugin from "./main";
+import { AudioPlayerSettingsControl } from "./components/AudioPlayerSettingsControl";
 
 export class NarratorSettingTab extends PluginSettingTab {
 	plugin: NarratorPlugin;
+	voicePreviewPlayer: AudioPlayerSettingsControl | null = null;
 
 	constructor(app: App, plugin: NarratorPlugin) {
 		super(app, plugin);
@@ -66,6 +68,15 @@ export class NarratorSettingTab extends PluginSettingTab {
 					dropdown.addOption("loading", "Loading...").setDisabled(true);
 				}
 			});
+
+		// Voice Preview Player
+		if (voicesAvailable) {
+			const playerContainer = containerEl.createEl("div");
+			this.voicePreviewPlayer = new AudioPlayerSettingsControl(
+				playerContainer,
+				this.plugin
+			);
+		}
 
 		new Setting(containerEl)
 			.setName("Speed")
