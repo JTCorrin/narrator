@@ -1,0 +1,24 @@
+/* Narrator Plugin Styles */
+
+/* Add custom styles here if needed */
+/* Currently using Obsidian's default styling for context menus and notices */
+
+/* Example: Custom styling for narration status indicators */
+.narrator-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5em;
+}
+
+.narrator-status-icon {
+	animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
