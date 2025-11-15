@@ -32,25 +32,40 @@ export class NarratorSettingTab extends PluginSettingTab {
 		// Voice Settings Section
 		containerEl.createEl("h2", { text: "Voice Settings" });
 
+		// Get voices from plugin (pre-loaded in background)
+		const voices = this.plugin.cachedVoices;
+		const voicesAvailable = voices.length > 0;
+
 		new Setting(containerEl)
 			.setName("Voice")
-			.setDesc("Select the voice for narration")
-			.addDropdown((dropdown) =>
-				dropdown
-					.addOptions({
-						alloy: "Alloy (Default)",
-						echo: "Echo",
-						fable: "Fable",
-						onyx: "Onyx",
-						nova: "Nova",
-						shimmer: "Shimmer",
-					})
-					.setValue(this.plugin.settings.voice)
-					.onChange(async (value) => {
-						this.plugin.settings.voice = value;
-						await this.plugin.saveSettings();
-					})
-			);
+			.setDesc(
+				voicesAvailable
+					? `Select the voice for narration (${voices.length} available)`
+					: "Loading voices..."
+			)
+			.addDropdown((dropdown) => {
+				if (voicesAvailable) {
+					// Build options from loaded voices
+					const options: Record<string, string> = {};
+					voices.forEach((voice) => {
+						// Capitalize first letter for display
+						const displayName =
+							voice.charAt(0).toUpperCase() + voice.slice(1);
+						options[voice] = displayName;
+					});
+
+					dropdown
+						.addOptions(options)
+						.setValue(this.plugin.settings.voice)
+						.onChange(async (value) => {
+							this.plugin.settings.voice = value;
+							await this.plugin.saveSettings();
+						});
+				} else {
+					// Show loading state
+					dropdown.addOption("loading", "Loading...").setDisabled(true);
+				}
+			});
 
 		new Setting(containerEl)
 			.setName("Speed")

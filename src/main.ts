@@ -1,10 +1,11 @@
 import { Notice, Plugin, TFile, Editor, MarkdownView, MarkdownFileInfo, Menu } from "obsidian";
 import { NarratorSettingTab } from "./settings";
 import { NarratorSettings, DEFAULT_SETTINGS } from "./types";
-import { initApiClient, apiClient, NarratorApiError } from "./api";
+import { initApiClient, apiClient, NarratorApiError, VoiceType } from "./api";
 
 export default class NarratorPlugin extends Plugin {
 	settings!: NarratorSettings;
+	cachedVoices: VoiceType[] = [];
 
 	async onload() {
 		console.log("Loading Narrator plugin");
@@ -19,6 +20,13 @@ export default class NarratorPlugin extends Plugin {
 
 		// Register settings tab
 		this.addSettingTab(new NarratorSettingTab(this.app, this));
+
+		// Load voices asynchronously after workspace is ready
+		if (this.app.workspace.layoutReady) {
+			this.loadVoicesAsync();
+		} else {
+			this.app.workspace.onLayoutReady(() => this.loadVoicesAsync());
+		}
 
 		// Register context menu events
 		this.registerWorkspaceEvents();
@@ -235,6 +243,21 @@ export default class NarratorPlugin extends Plugin {
 		await this.app.vault.createBinary(audioFilePath, uint8Array);
 
 		console.log(`Audio saved to: ${audioFilePath}`);
+	}
+
+	/**
+	 * Load available voices asynchronously in background
+	 */
+	private async loadVoicesAsync(): Promise<void> {
+		try {
+			console.log("Loading voices from API...");
+			this.cachedVoices = await apiClient.narration.getVoices();
+			console.log(`Loaded ${this.cachedVoices.length} voices:`, this.cachedVoices);
+		} catch (error) {
+			console.error("Failed to load voices:", error);
+			// Fallback to default voices
+			this.cachedVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+		}
 	}
 
 	/**
