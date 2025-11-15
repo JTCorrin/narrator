@@ -1,0 +1,273 @@
+import { Notice, Plugin, TFile, Editor, MarkdownView, MarkdownFileInfo, Menu } from "obsidian";
+import { NarratorSettingTab } from "./settings";
+import { NarratorSettings, DEFAULT_SETTINGS } from "./types";
+import { initApiClient, apiClient, NarratorApiError } from "./api";
+
+export default class NarratorPlugin extends Plugin {
+	settings!: NarratorSettings;
+
+	async onload() {
+		console.log("Loading Narrator plugin");
+
+		// Load saved settings
+		await this.loadSettings();
+
+		// Initialize API client with settings
+		initApiClient({
+			apiKey: this.settings.apiKey,
+		});
+
+		// Register settings tab
+		this.addSettingTab(new NarratorSettingTab(this.app, this));
+
+		// Register context menu events
+		this.registerWorkspaceEvents();
+
+		// Add commands to command palette
+		this.addCommands();
+	}
+
+	onunload() {
+		console.log("Unloading Narrator plugin");
+	}
+
+	private registerWorkspaceEvents() {
+		// File menu context: "Narrate" full note and "Create Script"
+		this.registerEvent(
+			// @ts-ignore - file-menu is a valid event type
+			this.app.workspace.on("file-menu", (menu: Menu, file: TFile) => {
+				// Only add menu items for markdown files
+				if (file.extension === "md") {
+					menu.addItem((item) => {
+						item
+							.setTitle("Narrate")
+							.setIcon("volume-2")
+							.onClick(async () => {
+								await this.narrateFile(file);
+							});
+					});
+
+					menu.addItem((item) => {
+						item
+							.setTitle("Create Script")
+							.setIcon("file-text")
+							.onClick(async () => {
+								await this.createScript(file);
+							});
+					});
+				}
+			})
+		);
+
+		// Editor menu context: "Narrate" selected text
+		this.registerEvent(
+			// @ts-ignore - editor-menu is a valid event type
+			this.app.workspace.on("editor-menu", (menu: Menu, editor: Editor, view: MarkdownView) => {
+				const selectedText = editor.getSelection();
+
+				// Only show if text is selected
+				if (selectedText) {
+					menu.addItem((item) => {
+						item
+							.setTitle("Narrate Selection")
+							.setIcon("volume-2")
+							.onClick(async () => {
+								await this.narrateText(selectedText, view.file);
+							});
+					});
+				}
+			})
+		);
+	}
+
+	private addCommands() {
+		// Command palette command for narrating active note
+		this.addCommand({
+			id: "narrate-active-note",
+			name: "Narrate active note",
+			editorCallback: async (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
+				const file = ctx instanceof MarkdownView ? ctx.file : ctx.file;
+				if (file) {
+					await this.narrateFile(file);
+				}
+			},
+		});
+
+		// Command palette command for creating script from active note
+		this.addCommand({
+			id: "create-script-from-note",
+			name: "Create script from active note",
+			editorCallback: async (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
+				const file = ctx instanceof MarkdownView ? ctx.file : ctx.file;
+				if (file) {
+					await this.createScript(file);
+				}
+			},
+		});
+	}
+
+	/**
+	 * Narrate the full contents of a file
+	 */
+	private async narrateFile(file: TFile) {
+		try {
+			const content = await this.app.vault.read(file);
+
+			new Notice(`Narrating: ${file.basename}`);
+
+			// Call narration API
+			const response = await apiClient.narration.narrateFile(content, {
+				voice: this.settings.voice as any,
+				speed: this.settings.speed,
+				format: "mp3",
+			});
+
+			// Save audio file
+			if (response.audioData) {
+				await this.saveAudioFile(
+					response.audioData,
+					file.basename,
+					response.format
+				);
+				new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+			}
+
+		} catch (error) {
+			this.handleError(error, "Error narrating file");
+		}
+	}
+
+	/**
+	 * Narrate selected text
+	 */
+	private async narrateText(text: string, file: TFile | null) {
+		try {
+			new Notice("Narrating selected text...");
+
+			// Call narration API
+			const response = await apiClient.narration.narrateText(text, {
+				voice: this.settings.voice as any,
+				speed: this.settings.speed,
+				format: "mp3",
+			});
+
+			// Save audio file
+			if (response.audioData) {
+				const filename = file ? `${file.basename}-selection` : "selection";
+				await this.saveAudioFile(
+					response.audioData,
+					filename,
+					response.format
+				);
+				new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+			}
+
+		} catch (error) {
+			this.handleError(error, "Error narrating text");
+		}
+	}
+
+	/**
+	 * Create a script file with character breakdowns
+	 */
+	private async createScript(file: TFile) {
+		try {
+			const content = await this.app.vault.read(file);
+
+			new Notice(`Creating script from: ${file.basename}`);
+
+			// Generate script using API client
+			const scriptResponse = await apiClient.scripting.generateScript(content, {
+				detectCharacters: true,
+				includeNarrator: true,
+			});
+
+			// Create sibling file with "-script" suffix
+			const scriptPath = file.path.replace(/\.md$/, "-script.md");
+
+			// Check if file already exists
+			const existingFile = this.app.vault.getAbstractFileByPath(scriptPath);
+			if (existingFile) {
+				new Notice(`Script file already exists: ${scriptPath}`);
+				return;
+			}
+
+			await this.app.vault.create(scriptPath, scriptResponse.content);
+			new Notice(
+				`Script created with ${scriptResponse.characters.length} characters: ${scriptPath}`
+			);
+
+			// Open the newly created script file
+			const newFile = this.app.vault.getAbstractFileByPath(scriptPath);
+			if (newFile instanceof TFile) {
+				await this.app.workspace.getLeaf().openFile(newFile);
+			}
+
+		} catch (error) {
+			this.handleError(error, "Error creating script");
+		}
+	}
+
+	/**
+	 * Save audio file to vault
+	 */
+	private async saveAudioFile(
+		audioData: ArrayBuffer,
+		filename: string,
+		format: string
+	): Promise<void> {
+		const folderPath = this.settings.audioOutputFolder;
+
+		// Ensure folder exists
+		const folder = this.app.vault.getAbstractFileByPath(folderPath);
+		if (!folder) {
+			await this.app.vault.createFolder(folderPath);
+		}
+
+		// Create filename with timestamp to avoid conflicts
+		const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+		const audioFilePath = `${folderPath}/${filename}-${timestamp}.${format}`;
+
+		// Convert ArrayBuffer to Uint8Array for Obsidian API
+		const uint8Array = new Uint8Array(audioData);
+
+		// Save the audio file
+		await this.app.vault.createBinary(audioFilePath, uint8Array);
+
+		console.log(`Audio saved to: ${audioFilePath}`);
+	}
+
+	/**
+	 * Handle errors with user-friendly messages
+	 */
+	private handleError(error: unknown, defaultMessage: string): void {
+		let errorMessage = defaultMessage;
+
+		if (error instanceof NarratorApiError) {
+			errorMessage = `${defaultMessage}: ${error.message}`;
+		} else if (error instanceof Error) {
+			errorMessage = `${defaultMessage}: ${error.message}`;
+		}
+
+		new Notice(errorMessage);
+		console.error(defaultMessage, error);
+	}
+
+	async loadSettings() {
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+
+		// Update API client when settings are loaded
+		initApiClient({
+			apiKey: this.settings.apiKey,
+		});
+	}
+
+	async saveSettings() {
+		await this.saveData(this.settings);
+
+		// Update API client when settings are saved
+		initApiClient({
+			apiKey: this.settings.apiKey,
+		});
+	}
+}
