@@ -256,7 +256,7 @@ export default class NarratorPlugin extends Plugin {
 		const uint8Array = new Uint8Array(audioData);
 
 		// Save the audio file
-		await this.app.vault.createBinary(audioFilePath, uint8Array);
+		await this.app.vault.createBinary(audioFilePath, uint8Array.buffer);
 
 		console.log(`Audio saved to: ${audioFilePath}`);
 	}
