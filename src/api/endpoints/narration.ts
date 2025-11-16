@@ -8,22 +8,19 @@ export async function narrateText(
 	text: string,
 	options: NarrationOptions
 ): Promise<NarrationResponse> {
-	const { voice, speed = 1.0, format = "mp3" } = options;
+	const { voice } = options;
 
-	const response = await apiRequest<ArrayBuffer>("/audio/speech", {
+	const response = await apiRequest<ArrayBuffer>("/tts/synthesize", {
 		method: "POST",
 		body: JSON.stringify({
-			model: "tts-1",
-			input: text,
-			voice,
-			speed,
-			response_format: format,
+			text,
+			voice
 		}),
 	});
 
 	return {
 		audioData: response,
-		format,
+		format: "wav",
 	};
 }
 

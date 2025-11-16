@@ -6,7 +6,7 @@ export type VoiceType = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer"
 /**
  * Audio format options
  */
-export type AudioFormat = "mp3" | "opus" | "aac" | "flac";
+export type AudioFormat = "mp3" | "opus" | "aac" | "flac" | "wav";
 
 /**
  * Options for narration requests

@@ -190,10 +190,11 @@ export default class NarratorPlugin extends Plugin {
 
 			// Call narration API
 			const response = await apiClient.narration.narrateText(text, {
-				voice: this.settings.voice as any,
-				speed: this.settings.speed,
-				format: "mp3",
+				voice: this.settings.voice as any
 			});
+
+			console.log(response);
+			
 
 			// Save audio file
 			if (response.audioData) {
