@@ -157,13 +157,11 @@ export default class NarratorPlugin extends Plugin {
 		try {
 			const content = await this.app.vault.read(file);
 
-			new Notice(`Narrating: ${file.basename}`);
+			new Notice(`Streaming narration: ${file.basename}`);
 
-			// Call narration API
-			const response = await apiClient.narration.narrateFile(content, {
+			// Use WebSocket streaming for real-time playback
+			const response = await apiClient.narration.narrateTextStreaming(content, {
 				voice: this.settings.voice as any,
-				speed: this.settings.speed,
-				format: "mp3",
 			});
 
 			// Save audio file
@@ -186,14 +184,13 @@ export default class NarratorPlugin extends Plugin {
 	 */
 	private async narrateText(text: string, file: TFile | null) {
 		try {
-			new Notice("Narrating selected text...");
+			new Notice("Streaming narration...");
 
-			// Call narration API
-			const response = await apiClient.narration.narrateText(text, {
-				voice: this.settings.voice as any
+			// Use WebSocket streaming for real-time playback
+			const response = await apiClient.narration.narrateTextStreaming(text, {
+				//voice: this.settings.voice as any,
+				voice: "vctk/p226_023.wav" as any, // DEBUG HARDCODED VOICE
 			});
-
-			console.log(response);
 			
 
 			// Save audio file

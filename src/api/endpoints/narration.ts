@@ -1,5 +1,7 @@
-import { apiRequest } from "../client";
+import { apiRequest, getApiBaseUrl } from "../client";
 import type { NarrationOptions, NarrationResponse, VoiceType } from "../types";
+import { StreamingAudioPlayer } from "../../utils/audioPlayer";
+import { encodeWAV } from "../../utils/wavEncoder";
 
 /**
  * Narrate text using the API
@@ -67,4 +69,109 @@ export function createAudioBlob(
 ): Blob {
 	const mimeType = `audio/${format}`;
 	return new Blob([audioData], { type: mimeType });
+}
+
+/**
+ * Decode base64 string to Float32Array
+ * @param base64 Base64 encoded audio data
+ * @returns Float32Array PCM audio data
+ */
+function decodeBase64ToFloat32Array(base64: string): Float32Array {
+	// Decode base64 to binary string
+	const binaryString = atob(base64);
+
+	// Create Uint8Array from binary string
+	const bytes = new Uint8Array(binaryString.length);
+	for (let i = 0; i < binaryString.length; i++) {
+		bytes[i] = binaryString.charCodeAt(i);
+	}
+
+	// Convert Uint8Array buffer to Float32Array
+	return new Float32Array(bytes.buffer);
+}
+
+/**
+ * Stream narration using WebSocket with real-time playback
+ * Plays audio as chunks arrive and returns complete WAV file at the end
+ */
+export async function narrateTextStreaming(
+	text: string,
+	options: NarrationOptions
+): Promise<NarrationResponse> {
+	const { voice } = options;
+	const baseUrl = getApiBaseUrl();
+
+	// Convert http(s) to ws(s)
+	const wsUrl = baseUrl.replace(/^http/, "ws");
+	const wsEndpoint = `${wsUrl}/tts/stream?voice=${encodeURIComponent(voice)}`;
+
+	return new Promise((resolve, reject) => {
+		const ws = new WebSocket(wsEndpoint);
+		const audioPlayer = new StreamingAudioPlayer();
+		let chunkCount = 0;
+
+		ws.onopen = () => {
+			ws.send(text);
+		};
+
+		ws.onmessage = async (event) => {
+			try {
+				// Parse JSON message
+				const msg = JSON.parse(event.data);
+
+				if (msg.type === "audio") {
+					// Decode base64 to Float32Array
+					const audioData = decodeBase64ToFloat32Array(msg.data);
+					const sampleRate = msg.sample_rate || 22050;
+
+					// Play chunk immediately for real-time playback
+					await audioPlayer.addPCMChunk(audioData, sampleRate);
+
+					chunkCount++;
+					console.log(`Played audio chunk ${chunkCount}`);
+
+				} else if (msg.type === "complete") {
+					// Get all collected audio
+					const combinedAudio = audioPlayer.getCollectedAudio();
+					const sampleRate = audioPlayer.getSampleRate();
+
+					// Encode to WAV format
+					const wavData = encodeWAV(combinedAudio, sampleRate);
+
+					// Clean up
+					await audioPlayer.destroy();
+					ws.close();
+
+					console.log(`Streaming complete: ${chunkCount} chunks, ${combinedAudio.length} samples`);
+
+					resolve({
+						audioData: wavData,
+						format: "wav",
+					});
+
+				} else if (msg.type === "error") {
+					await audioPlayer.destroy();
+					ws.close();
+					reject(new Error(msg.message || "Streaming TTS failed"));
+				}
+
+			} catch (error) {
+				console.error("Error processing WebSocket message:", error);
+				await audioPlayer.destroy();
+				ws.close();
+				reject(error);
+			}
+		};
+
+		ws.onerror = async (error) => {
+			console.error("WebSocket error:", error);
+			await audioPlayer.destroy();
+			ws.close();
+			reject(new Error("WebSocket connection failed"));
+		};
+
+		ws.onclose = () => {
+			console.log("WebSocket connection closed");
+		};
+	});
 }
