@@ -1,0 +1,10 @@
+{
+	"id": "narrator",
+	"name": "Narrator",
+	"version": "1.0.0",
+	"minAppVersion": "1.0.0",
+	"description": "Narrate your notes with AI voice generation. Select text or entire notes to create audio narration, and generate character-based scripts for multi-voice storytelling.",
+	"author": "Joe",
+	"authorUrl": "https://github.com/yourusername",
+	"isDesktopOnly": false
+}
