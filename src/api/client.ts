@@ -12,6 +12,7 @@ import type { ApiErrorResponse } from "./types";
  */
 interface ApiClientConfig {
 	apiKey: string;
+	openRouterApiKey?: string;
 	baseUrl?: string;
 }
 
@@ -85,8 +86,13 @@ export async function apiRequest<T = unknown>(
 	const url = `${baseUrl}${endpoint}`;
 
 	const headers = new Headers(options.headers || {});
-	headers.set("Authorization", `Bearer ${apiKey}`);
 	headers.set("Content-Type", "application/json");
+	headers.set("x-api-key", apiKey);
+
+	// Add OpenRouter API key if configured
+	if (apiConfig?.openRouterApiKey) {
+		headers.set("x-openrouter-key", apiConfig.openRouterApiKey);
+	}
 
 	const requestOptions: RequestInit = {
 		...options,

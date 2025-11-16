@@ -19,6 +19,7 @@ export default class NarratorPlugin extends Plugin {
 		// Initialize API client with settings
 		initApiClient({
 			apiKey: this.settings.apiKey,
+			openRouterApiKey: this.settings.openRouterApiKey,
 		});
 
 		// Register settings tab
@@ -317,6 +318,7 @@ export default class NarratorPlugin extends Plugin {
 		// Update API client when settings are loaded
 		initApiClient({
 			apiKey: this.settings.apiKey,
+			openRouterApiKey: this.settings.openRouterApiKey,
 		});
 	}
 
@@ -326,6 +328,7 @@ export default class NarratorPlugin extends Plugin {
 		// Update API client when settings are saved
 		initApiClient({
 			apiKey: this.settings.apiKey,
+			openRouterApiKey: this.settings.openRouterApiKey,
 		});
 	}
 }
