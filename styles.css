@@ -112,3 +112,38 @@
 	border: none;
 	padding: 4px;
 }
+
+/* Loading Indicator Styles */
+.narrator-loading-container {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 8px;
+}
+
+.narrator-loading-spinner {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	position: relative;
+}
+
+.narrator-loading-spinner-circle {
+	box-sizing: border-box;
+	display: block;
+	width: 16px;
+	height: 16px;
+	border: 2px solid var(--interactive-accent);
+	border-radius: 50%;
+	border-top-color: transparent;
+	border-right-color: transparent;
+	animation: narrator-spin 0.8s linear infinite;
+}
+
+@keyframes narrator-spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
