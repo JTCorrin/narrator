@@ -7,7 +7,7 @@ import { LoadingIndicator } from "./components/LoadingIndicator";
 
 export default class NarratorPlugin extends Plugin {
 	settings!: NarratorSettings;
-	cachedVoices: VoiceType[] = [];
+	cachedVoices: string[] = [];
 	cachedModels: AIModel[] = [];
 	statusBarPlayer: AudioPlayerStatusBar | null = null;
 	loadingIndicator: LoadingIndicator | null = null;
@@ -189,7 +189,7 @@ export default class NarratorPlugin extends Plugin {
 			// Use WebSocket streaming for real-time playback
 			const response = await apiClient.narration.narrateTextStreaming(text, {
 				//voice: this.settings.voice as any,
-				voice: "vctk/p226_023.wav" as any, // DEBUG HARDCODED VOICE
+				voice: this.settings.voice as any,
 			});
 			
 

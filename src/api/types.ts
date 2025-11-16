@@ -12,7 +12,7 @@ export type AudioFormat = "mp3" | "opus" | "aac" | "flac" | "wav";
  * Options for narration requests
  */
 export interface NarrationOptions {
-	voice: VoiceType;
+	voice: string;
 	speed?: number;
 	format?: AudioFormat;
 }
