@@ -3,6 +3,8 @@ export interface NarratorSettings {
 	voice: string;
 	speed: number;
 	audioOutputFolder: string;
+	openRouterApiKey: string;
+	aiModel: string;
 }
 
 export const DEFAULT_SETTINGS: NarratorSettings = {
@@ -10,4 +12,6 @@ export const DEFAULT_SETTINGS: NarratorSettings = {
 	voice: "alloy",
 	speed: 1.0,
 	audioOutputFolder: "narration-audio",
+	openRouterApiKey: "",
+	aiModel: "",
 };

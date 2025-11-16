@@ -104,5 +104,54 @@ export class NarratorSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+
+		// AI Configuration Section
+		containerEl.createEl("h2", { text: "AI Configuration" });
+
+		new Setting(containerEl)
+			.setName("OpenRouter API Key")
+			.setDesc("Enter your OpenRouter API key for AI model access")
+			.addText((text) =>
+				text
+					.setPlaceholder("Enter your OpenRouter API key")
+					.setValue(this.plugin.settings.openRouterApiKey)
+					.onChange(async (value) => {
+						this.plugin.settings.openRouterApiKey = value;
+						await this.plugin.saveSettings();
+					})
+					.inputEl.setAttribute("type", "password")
+			);
+
+		// Get models from plugin (pre-loaded in background)
+		const models = this.plugin.cachedModels;
+		const modelsAvailable = models.length > 0;
+
+		new Setting(containerEl)
+			.setName("AI Model")
+			.setDesc(
+				modelsAvailable
+					? `Select the AI model for script generation (${models.length} available)`
+					: "Loading models..."
+			)
+			.addDropdown((dropdown) => {
+				if (modelsAvailable) {
+					// Build options from loaded models
+					const options: Record<string, string> = {};
+					models.forEach((model) => {
+						options[model.id] = model.name;
+					});
+
+					dropdown
+						.addOptions(options)
+						.setValue(this.plugin.settings.aiModel)
+						.onChange(async (value) => {
+							this.plugin.settings.aiModel = value;
+							await this.plugin.saveSettings();
+						});
+				} else {
+					// Show loading state
+					dropdown.addOption("loading", "Loading...").setDisabled(true);
+				}
+			});
 	}
 }

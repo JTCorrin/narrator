@@ -94,3 +94,19 @@ export interface ApiErrorResponse {
 		code?: string;
 	};
 }
+
+/**
+ * AI Model information
+ */
+export interface AIModel {
+	id: string;
+	name: string;
+	description?: string;
+}
+
+/**
+ * Response from models API
+ */
+export interface ModelsResponse {
+	models: AIModel[];
+}

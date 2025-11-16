@@ -1,12 +1,13 @@
 import { Notice, Plugin, TFile, Editor, MarkdownView, MarkdownFileInfo, Menu } from "obsidian";
 import { NarratorSettingTab } from "./settings";
 import { NarratorSettings, DEFAULT_SETTINGS } from "./types";
-import { initApiClient, apiClient, NarratorApiError, VoiceType } from "./api";
+import { initApiClient, apiClient, NarratorApiError, VoiceType, AIModel } from "./api";
 import { AudioPlayerStatusBar } from "./components/AudioPlayerStatusBar";
 
 export default class NarratorPlugin extends Plugin {
 	settings!: NarratorSettings;
 	cachedVoices: VoiceType[] = [];
+	cachedModels: AIModel[] = [];
 	statusBarPlayer: AudioPlayerStatusBar | null = null;
 
 	async onload() {
@@ -23,11 +24,15 @@ export default class NarratorPlugin extends Plugin {
 		// Register settings tab
 		this.addSettingTab(new NarratorSettingTab(this.app, this));
 
-		// Load voices asynchronously after workspace is ready
+		// Load voices and models asynchronously after workspace is ready
 		if (this.app.workspace.layoutReady) {
 			this.loadVoicesAsync();
+			this.loadModelsAsync();
 		} else {
-			this.app.workspace.onLayoutReady(() => this.loadVoicesAsync());
+			this.app.workspace.onLayoutReady(() => {
+				this.loadVoicesAsync();
+				this.loadModelsAsync();
+			});
 		}
 
 		// Initialize audio player status bar
@@ -272,6 +277,21 @@ export default class NarratorPlugin extends Plugin {
 			console.error("Failed to load voices:", error);
 			// Fallback to default voices
 			this.cachedVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+		}
+	}
+
+	/**
+	 * Load available AI models asynchronously in background
+	 */
+	private async loadModelsAsync(): Promise<void> {
+		try {
+			console.log("Loading AI models from API...");
+			this.cachedModels = await apiClient.ai.getModels();
+			console.log(`Loaded ${this.cachedModels.length} models:`, this.cachedModels);
+		} catch (error) {
+			console.error("Failed to load AI models:", error);
+			// Empty array on failure - user will see "Loading..." in settings
+			this.cachedModels = [];
 		}
 	}
 
