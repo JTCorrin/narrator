@@ -128,26 +128,34 @@ export async function narrateTextStreaming(
 					await audioPlayer.addPCMChunk(audioData, sampleRate);
 
 					chunkCount++;
-					console.log(`Played audio chunk ${chunkCount}`);
 
 				} else if (msg.type === "complete") {
-					// Get all collected audio
-					const combinedAudio = audioPlayer.getCollectedAudio();
-					const sampleRate = audioPlayer.getSampleRate();
+					// Wait for all scheduled audio to finish playing
+					const remainingTime = audioPlayer.getRemainingPlaybackTime();
+					console.log(`Waiting ${remainingTime.toFixed(2)}s for playback to complete...`);
 
-					// Encode to WAV format
-					const wavData = encodeWAV(combinedAudio, sampleRate);
+					// Add small buffer to ensure last chunk completes
+					const waitTime = (remainingTime + 0.1) * 1000; // Convert to ms and add 100ms buffer
 
-					// Clean up
-					await audioPlayer.destroy();
-					ws.close();
+					setTimeout(async () => {
+						// Get all collected audio
+						const combinedAudio = audioPlayer.getCollectedAudio();
+						const sampleRate = audioPlayer.getSampleRate();
 
-					console.log(`Streaming complete: ${chunkCount} chunks, ${combinedAudio.length} samples`);
+						// Encode to WAV format
+						const wavData = encodeWAV(combinedAudio, sampleRate);
 
-					resolve({
-						audioData: wavData,
-						format: "wav",
-					});
+						// Clean up
+						await audioPlayer.destroy();
+						ws.close();
+
+						console.log(`Streaming complete: ${chunkCount} chunks, ${combinedAudio.length} samples`);
+
+						resolve({
+							audioData: wavData,
+							format: "wav",
+						});
+					}, waitTime);
 
 				} else if (msg.type === "error") {
 					await audioPlayer.destroy();

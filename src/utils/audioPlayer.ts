@@ -110,6 +110,17 @@ export class StreamingAudioPlayer {
 	}
 
 	/**
+	 * Get remaining playback time in seconds
+	 * Returns how much audio is still scheduled to play
+	 */
+	public getRemainingPlaybackTime(): number {
+		if (!this.isPlaying) {
+			return 0;
+		}
+		return Math.max(0, this.scheduledTime - this.audioContext.currentTime);
+	}
+
+	/**
 	 * Reset for new stream
 	 */
 	public reset(): void {
