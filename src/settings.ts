@@ -126,6 +126,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 		const models = this.plugin.cachedModels;
 		const modelsAvailable = models.length > 0;
 
+		// Create the AI Model dropdown setting
 		new Setting(containerEl)
 			.setName("AI Model")
 			.setDesc(
@@ -147,11 +148,72 @@ export class NarratorSettingTab extends PluginSettingTab {
 						.onChange(async (value) => {
 							this.plugin.settings.aiModel = value;
 							await this.plugin.saveSettings();
+							// Update model details display
+							this.updateModelDetailsDisplay(modelDetailsContainer, models, value);
 						});
 				} else {
 					// Show loading state
 					dropdown.addOption("loading", "Loading...").setDisabled(true);
 				}
 			});
+
+		// Create model details container for dynamic updates (after the dropdown)
+		const modelDetailsContainer = containerEl.createEl("div", {
+			cls: "narrator-model-details",
+		});
+
+		// Initialize details display for currently selected model if available
+		if (modelsAvailable && this.plugin.settings.aiModel) {
+			this.updateModelDetailsDisplay(modelDetailsContainer, models, this.plugin.settings.aiModel);
+		}
+	}
+
+	/**
+	 * Update the model details display
+	 */
+	private updateModelDetailsDisplay(
+		container: HTMLElement,
+		models: any[],
+		modelId: string
+	): void {
+		container.empty();
+
+		if (!modelId || models.length === 0) return;
+
+		const selectedModel = models.find((m) => m.id === modelId);
+		if (!selectedModel) return;
+
+		// Create details container
+		const detailsEl = container.createEl("div", {
+			cls: "setting-item-description",
+		});
+		detailsEl.style.marginTop = "8px";
+		detailsEl.style.paddingLeft = "0";
+
+		// Add context length
+		if (selectedModel.context_length) {
+			detailsEl.createEl("div", {
+				text: `Context Length: ${selectedModel.context_length.toLocaleString()} tokens`,
+			});
+		}
+
+		// Add pricing information
+		if (selectedModel.pricing) {
+			const pricingEl = detailsEl.createEl("div");
+			const promptCost = parseFloat(selectedModel.pricing.prompt);
+			const completionCost = parseFloat(selectedModel.pricing.completion);
+
+			pricingEl.createEl("span", {
+				text: `Pricing: $${promptCost.toFixed(6)}/1K prompt tokens, $${completionCost.toFixed(6)}/1K completion tokens`,
+			});
+		}
+
+		// Add description if available
+		if (selectedModel.description) {
+			detailsEl.createEl("div", {
+				text: selectedModel.description,
+				cls: "mod-muted",
+			});
+		}
 	}
 }

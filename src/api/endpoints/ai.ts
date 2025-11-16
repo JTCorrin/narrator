@@ -5,7 +5,7 @@ import type { AIModel, ModelsResponse } from "../types";
  * Get available AI models from the API
  */
 export async function getModels(): Promise<AIModel[]> {
-	const response = await apiRequest<ModelsResponse>("/ai/models", {
+	const response = await apiRequest<ModelsResponse>("/models", {
 		method: "GET",
 	});
 

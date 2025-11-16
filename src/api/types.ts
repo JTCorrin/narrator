@@ -96,12 +96,50 @@ export interface ApiErrorResponse {
 }
 
 /**
+ * AI Model pricing information
+ */
+export interface AIModelPricing {
+	prompt: string;
+	completion: string;
+	request: string;
+	image: string;
+}
+
+/**
+ * AI Model architecture information
+ */
+export interface AIModelArchitecture {
+	modality: string;
+	input_modalities: string[];
+	output_modalities: string[];
+	tokenizer: string;
+	instruct_type?: string;
+}
+
+/**
+ * AI Model top provider information
+ */
+export interface AIModelTopProvider {
+	context_length: number;
+	max_completion_tokens: number;
+	is_moderated: boolean;
+}
+
+/**
  * AI Model information
  */
 export interface AIModel {
 	id: string;
 	name: string;
+	canonical_slug?: string;
+	created?: number;
 	description?: string;
+	pricing?: AIModelPricing;
+	context_length?: number;
+	max_completion_tokens?: number;
+	architecture?: AIModelArchitecture;
+	top_provider?: AIModelTopProvider;
+	supported_parameters?: string[];
 }
 
 /**
@@ -109,4 +147,7 @@ export interface AIModel {
  */
 export interface ModelsResponse {
 	models: AIModel[];
+	count?: number;
+	filters_applied?: Record<string, boolean>;
+	cached?: boolean;
 }
