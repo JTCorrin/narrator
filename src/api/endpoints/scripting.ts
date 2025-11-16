@@ -33,8 +33,6 @@ epoch: ${Date.now()}
 model_used: "${result.model_used || modelName}"
 processing_time: ${result.processing_time || 0}
 ${characterVoices}
-tags:
-  - Generate Script
 ---`;
 
 	const instructions = `### Script Generation

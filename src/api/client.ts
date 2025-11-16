@@ -14,6 +14,8 @@ interface ApiClientConfig {
 	apiKey: string;
 	openRouterApiKey?: string;
 	baseUrl?: string;
+	onLoadingStart?: () => void;
+	onLoadingEnd?: () => void;
 }
 
 let apiConfig: ApiClientConfig | null = null;
@@ -99,6 +101,11 @@ export async function apiRequest<T = unknown>(
 		headers,
 	};
 
+	// Show loading indicator
+	if (apiConfig?.onLoadingStart) {
+		apiConfig.onLoadingStart();
+	}
+
 	try {
 		const response = await fetch(url, requestOptions);
 
@@ -121,18 +128,38 @@ export async function apiRequest<T = unknown>(
 
 		// Handle binary responses
 		if (contentType?.includes("audio/") || contentType?.includes("application/octet-stream")) {
-			return (await response.arrayBuffer()) as T;
+			const result = (await response.arrayBuffer()) as T;
+			// Hide loading indicator on success
+			if (apiConfig?.onLoadingEnd) {
+				apiConfig.onLoadingEnd();
+			}
+			return result;
 		}
 
 		// Handle JSON responses
 		if (contentType?.includes("application/json")) {
-			return await response.json();
+			const result = await response.json();
+			// Hide loading indicator on success
+			if (apiConfig?.onLoadingEnd) {
+				apiConfig.onLoadingEnd();
+			}
+			return result;
 		}
 
 		// Handle text responses
-		return (await response.text()) as T;
+		const result = (await response.text()) as T;
+		// Hide loading indicator on success
+		if (apiConfig?.onLoadingEnd) {
+			apiConfig.onLoadingEnd();
+		}
+		return result;
 
 	} catch (error) {
+		// Hide loading indicator on error
+		if (apiConfig?.onLoadingEnd) {
+			apiConfig.onLoadingEnd();
+		}
+
 		// Re-throw our custom errors
 		if (error instanceof NarratorApiError) {
 			throw error;

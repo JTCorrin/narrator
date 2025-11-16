@@ -3,12 +3,14 @@ import { NarratorSettingTab } from "./settings";
 import { NarratorSettings, DEFAULT_SETTINGS } from "./types";
 import { initApiClient, apiClient, NarratorApiError, VoiceType, AIModel } from "./api";
 import { AudioPlayerStatusBar } from "./components/AudioPlayerStatusBar";
+import { LoadingIndicator } from "./components/LoadingIndicator";
 
 export default class NarratorPlugin extends Plugin {
 	settings!: NarratorSettings;
 	cachedVoices: VoiceType[] = [];
 	cachedModels: AIModel[] = [];
 	statusBarPlayer: AudioPlayerStatusBar | null = null;
+	loadingIndicator: LoadingIndicator | null = null;
 
 	async onload() {
 		console.log("Loading Narrator plugin");
@@ -16,10 +18,16 @@ export default class NarratorPlugin extends Plugin {
 		// Load saved settings
 		await this.loadSettings();
 
-		// Initialize API client with settings
+		// Initialize status bar components
+		this.initializeStatusBar();
+		this.initializeLoadingIndicator();
+
+		// Initialize API client with settings and loading callbacks
 		initApiClient({
 			apiKey: this.settings.apiKey,
 			openRouterApiKey: this.settings.openRouterApiKey,
+			onLoadingStart: () => this.loadingIndicator?.show(),
+			onLoadingEnd: () => this.loadingIndicator?.hide(),
 		});
 
 		// Register settings tab
@@ -36,9 +44,6 @@ export default class NarratorPlugin extends Plugin {
 			});
 		}
 
-		// Initialize audio player status bar
-		this.initializeStatusBar();
-
 		// Register context menu events
 		this.registerWorkspaceEvents();
 
@@ -49,9 +54,12 @@ export default class NarratorPlugin extends Plugin {
 	onunload() {
 		console.log("Unloading Narrator plugin");
 
-		// Clean up status bar player
+		// Clean up status bar components
 		if (this.statusBarPlayer) {
 			this.statusBarPlayer.destroy();
+		}
+		if (this.loadingIndicator) {
+			this.loadingIndicator.destroy();
 		}
 	}
 
@@ -108,6 +116,12 @@ export default class NarratorPlugin extends Plugin {
 		const statusBarContainer = this.addStatusBarItem();
 		this.statusBarPlayer = new AudioPlayerStatusBar(statusBarContainer, this);
 		console.log("Audio player status bar initialized");
+	}
+
+	private initializeLoadingIndicator() {
+		const loadingContainer = this.addStatusBarItem();
+		this.loadingIndicator = new LoadingIndicator(loadingContainer);
+		console.log("Loading indicator initialized");
 	}
 
 	private addCommands() {
@@ -319,6 +333,8 @@ export default class NarratorPlugin extends Plugin {
 		initApiClient({
 			apiKey: this.settings.apiKey,
 			openRouterApiKey: this.settings.openRouterApiKey,
+			onLoadingStart: () => this.loadingIndicator?.show(),
+			onLoadingEnd: () => this.loadingIndicator?.hide(),
 		});
 	}
 
@@ -329,6 +345,8 @@ export default class NarratorPlugin extends Plugin {
 		initApiClient({
 			apiKey: this.settings.apiKey,
 			openRouterApiKey: this.settings.openRouterApiKey,
+			onLoadingStart: () => this.loadingIndicator?.show(),
+			onLoadingEnd: () => this.loadingIndicator?.hide(),
 		});
 	}
 }
