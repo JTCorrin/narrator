@@ -1,34 +1,65 @@
-import type { ScriptOptions, ScriptResponse, Character } from "../types";
+import { apiRequest } from "../client";
+import type { ScriptOptions, ScriptResponse, Character, ScriptExtractionResult } from "../types";
 
 /**
- * Generate a script with character breakdowns from content
- * This is currently a client-side implementation
- * Can be extended to use an AI API in the future
+ * Generate a script with character breakdowns from content using the API
  */
 export async function generateScript(
 	content: string,
 	options: ScriptOptions = {}
 ): Promise<ScriptResponse> {
-	const { detectCharacters = true, includeNarrator = true } = options;
+	const { modelName = "gpt-4o-mini" } = options;
 
-	let scriptContent = `# Script\n\n*Generated from original note*\n\n---\n\n`;
+	// Call the API to format the script
+	const result = await apiRequest<ScriptExtractionResult>(
+		`/script/format?text=${encodeURIComponent(content)}&model_name=${modelName}`,
+		{
+			method: "POST",
+		}
+	);
 
-	if (includeNarrator) {
-		scriptContent += `[NARRATOR]\n${content}\n\n---\n\n`;
+	if (!result.success) {
+		throw new Error(result.error || "Script generation failed");
 	}
 
-	scriptContent += `*Instructions:*\n`;
-	scriptContent += `- Edit this script to assign dialogue to different characters\n`;
-	scriptContent += `- Use tags like [NARRATOR], [CHARACTER 1], [CHARACTER 2], etc.\n`;
-	scriptContent += `- Each character can be assigned a different voice when narrating\n`;
+	// Build character voice properties
+	const characterVoices = result.script.characters
+		.map(char => `${char} VOICE: ""`)
+		.join('\n');
 
-	const characters = detectCharacters
-		? await parseCharacters(content)
-		: [];
+	// Build the script content with frontmatter properties and instructions
+	const properties = `---
+epoch: ${Date.now()}
+model_used: "${result.model_used || modelName}"
+processing_time: ${result.processing_time || 0}
+${characterVoices}
+tags:
+  - Generate Script
+---`;
+
+	const instructions = `### Script Generation
+
+*Instructions:*
+- Read through this generated script and rectify any mistakes. The AI can make mistakes.
+- In the instance where the AI has missed dialogue or even a character, use tags like [CHARACTER NAME] to add them in. Don't forget to add them into the frontmatter above and assign them a voice.
+- To add or change character voices use the properties in the frontmatter above. Make sure the names match exactly. You can see a list of available voices in the plugins settings.
+
+---
+`;
+
+	// Combine properties, instructions, and formatted script
+	const scriptContent = `${properties}
+
+${instructions}
+
+${result.formatted_text}
+`;
 
 	return {
 		content: scriptContent,
-		characters: characters.map((c) => c.name),
+		characters: result.script.characters,
+		formattedText: result.formatted_text,
+		processingTime: result.processing_time,
 	};
 }
 

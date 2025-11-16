@@ -26,9 +26,10 @@ export function initApiClient(config: ApiClientConfig): void {
 
 /**
  * Get the API base URL
+ * Hardcoded to localhost for Narrator API server
  */
 export function getApiBaseUrl(): string {
-	return apiConfig?.baseUrl || "https://api.openai.com/v1";
+	return apiConfig?.baseUrl || "http://localhost:8000/api/v1";
 }
 
 /**

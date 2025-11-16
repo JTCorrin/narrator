@@ -202,8 +202,7 @@ export default class NarratorPlugin extends Plugin {
 
 			// Generate script using API client
 			const scriptResponse = await apiClient.scripting.generateScript(content, {
-				detectCharacters: true,
-				includeNarrator: true,
+				modelName: "gpt-4o-mini",
 			});
 
 			// Create sibling file with "-script" suffix

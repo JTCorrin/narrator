@@ -20,7 +20,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Narrator API Key")
-			.setDesc("Enter your API key for the narration service")
+			.setDesc("Enter your API key for the narration service (if required)")
 			.addText((text) =>
 				text
 					.setPlaceholder("Enter your API key")
@@ -42,7 +42,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 			.setName("Voice")
 			.setDesc(
 				voicesAvailable
-					? `Select the voice for narration (${voices.length} available)`
+					? `Select the default voice for narration (${voices.length} available)`
 					: "Loading voices..."
 			)
 			.addDropdown((dropdown) => {

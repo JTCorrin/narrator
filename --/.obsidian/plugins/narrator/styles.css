@@ -1,0 +1,114 @@
+/* Narrator Plugin Styles */
+
+/* Add custom styles here if needed */
+/* Currently using Obsidian's default styling for context menus and notices */
+
+/* Example: Custom styling for narration status indicators */
+.narrator-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5em;
+}
+
+.narrator-status-icon {
+	animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+/* Audio Player Status Bar Styles */
+.narrator-player-container {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0 8px;
+	font-size: 14px;
+}
+
+/* Play/Pause and Stop Buttons */
+.narrator-player-button {
+	cursor: pointer;
+	user-select: none;
+	opacity: 0.7;
+	transition: opacity 0.2s ease;
+	font-size: 16px;
+	line-height: 1;
+}
+
+.narrator-player-button:hover {
+	opacity: 1;
+}
+
+.narrator-player-button:active {
+	transform: scale(0.95);
+}
+
+/* Progress Bar Container */
+.narrator-player-progress-container {
+	flex: 1;
+	min-width: 100px;
+	max-width: 200px;
+}
+
+.narrator-player-progress-bar {
+	position: relative;
+	width: 100%;
+	height: 6px;
+	background-color: var(--background-modifier-border);
+	border-radius: 3px;
+	cursor: pointer;
+	overflow: hidden;
+}
+
+.narrator-player-progress-bar:hover {
+	background-color: var(--background-modifier-border-hover);
+}
+
+.narrator-player-progress-fill {
+	position: absolute;
+	top: 0;
+	left: 0;
+	height: 100%;
+	background-color: var(--interactive-accent);
+	border-radius: 3px;
+	width: 0%;
+	transition: width 0.1s linear;
+}
+
+/* Time Display */
+.narrator-player-time {
+	font-family: var(--font-monospace);
+	font-size: 12px;
+	opacity: 0.7;
+	white-space: nowrap;
+}
+
+/* Audio Player Settings Styles */
+.narrator-settings-player-wrapper {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 16px 0;
+	margin: 8px 0;
+}
+
+/* Override progress bar width for settings context */
+.narrator-settings-player-wrapper .narrator-player-progress-container {
+	flex: 1;
+	min-width: 300px;
+	max-width: none;
+}
+
+/* Settings player buttons - ensure proper styling */
+.narrator-settings-player-wrapper .narrator-player-button {
+	background: none;
+	border: none;
+	padding: 4px;
+}
