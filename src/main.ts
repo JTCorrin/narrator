@@ -267,7 +267,7 @@ export default class NarratorPlugin extends Plugin {
 
 		// Create filename with timestamp to avoid conflicts
 		const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-		const audioFilePath = `${folderPath}/${filename}-${timestamp}.${format}`;
+		const audioFilePath = `${folderPath}/${filename}-${this.settings.voice.split("/")[1]}-${timestamp}.${format}`;
 
 		// Convert ArrayBuffer to Uint8Array for Obsidian API
 		const uint8Array = new Uint8Array(audioData);

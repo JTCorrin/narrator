@@ -41,6 +41,7 @@ ${characterVoices}
 - Read through this generated script and rectify any mistakes. The AI can make mistakes.
 - In the instance where the AI has missed dialogue or even a character, use tags like [CHARACTER NAME] to add them in. Don't forget to add them into the frontmatter above and assign them a voice.
 - To add or change character voices use the properties in the frontmatter above. Make sure the names match exactly. You can see a list of available voices in the plugins settings.
+- Rather than messing with your actual manuscript, here is a good place to messa with punctuation. Full stops, commas, question marks, exclamation marks etc. will all have an effect on how the line is read out loud by the AI.
 
 ---
 `;
