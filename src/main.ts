@@ -162,16 +162,27 @@ export default class NarratorPlugin extends Plugin {
 			// Use WebSocket streaming for real-time playback
 			const response = await apiClient.narration.narrateTextStreaming(content, {
 				voice: this.settings.voice as any,
+				onComplete: async (audioData: ArrayBuffer) => {
+					// Save audio file
+					await this.saveAudioFile(
+						audioData,
+						file.basename,
+						"wav"
+					);
+					new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+
+					// Detach player from status bar
+					this.statusBarPlayer?.detachPlayer();
+				},
+				onError: (error: Error) => {
+					this.handleError(error, "Error narrating file");
+					this.statusBarPlayer?.detachPlayer();
+				}
 			});
 
-			// Save audio file
-			if (response.audioData) {
-				await this.saveAudioFile(
-					response.audioData,
-					file.basename,
-					response.format
-				);
-				new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+			// Connect player to status bar
+			if (response.player && response.cancel && this.statusBarPlayer) {
+				this.statusBarPlayer.attachPlayer(response.player, response.cancel);
 			}
 
 		} catch (error) {
@@ -188,20 +199,29 @@ export default class NarratorPlugin extends Plugin {
 
 			// Use WebSocket streaming for real-time playback
 			const response = await apiClient.narration.narrateTextStreaming(text, {
-				//voice: this.settings.voice as any,
 				voice: this.settings.voice as any,
-			});
-			
+				onComplete: async (audioData: ArrayBuffer) => {
+					// Save audio file
+					const filename = file ? `${file.basename}-selection` : "selection";
+					await this.saveAudioFile(
+						audioData,
+						filename,
+						"wav"
+					);
+					new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
 
-			// Save audio file
-			if (response.audioData) {
-				const filename = file ? `${file.basename}-selection` : "selection";
-				await this.saveAudioFile(
-					response.audioData,
-					filename,
-					response.format
-				);
-				new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+					// Detach player from status bar
+					this.statusBarPlayer?.detachPlayer();
+				},
+				onError: (error: Error) => {
+					this.handleError(error, "Error narrating text");
+					this.statusBarPlayer?.detachPlayer();
+				}
+			});
+
+			// Connect player to status bar
+			if (response.player && response.cancel && this.statusBarPlayer) {
+				this.statusBarPlayer.attachPlayer(response.player, response.cancel);
 			}
 
 		} catch (error) {

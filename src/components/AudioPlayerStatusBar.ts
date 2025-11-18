@@ -1,9 +1,10 @@
 import { Notice } from "obsidian";
 import type NarratorPlugin from "../main";
+import { StreamingAudioPlayer } from "../utils/audioPlayer";
 
 /**
  * Audio player controls displayed in Obsidian's status bar
- * Currently shows UI structure with placeholder functionality
+ * Controls external streaming audio player for narration playback
  */
 export class AudioPlayerStatusBar {
 	private container: HTMLElement;
@@ -12,9 +13,10 @@ export class AudioPlayerStatusBar {
 
 	private playPauseButton: HTMLElement;
 	private stopButton: HTMLElement;
-	private timeDisplay: HTMLElement;
-	private progressBar: HTMLElement;
-	private progressFill: HTMLElement;
+
+	// External player control
+	private currentPlayer: StreamingAudioPlayer | null = null;
+	private cancelStreaming: (() => void) | null = null;
 
 	constructor(container: HTMLElement, plugin: NarratorPlugin) {
 		this.container = container;
@@ -22,19 +24,16 @@ export class AudioPlayerStatusBar {
 
 		this.container.addClass("narrator-player-container");
 
-		// Build the player UI
+		// Build the player UI - just buttons
 		this.playPauseButton = this.createPlayPauseButton();
 		this.stopButton = this.createStopButton();
-		const progressContainer = this.createProgressBar();
-		this.progressBar = progressContainer;
-		this.progressFill = progressContainer.querySelector(".narrator-player-progress-fill") as HTMLElement;
-		this.timeDisplay = this.createTimeDisplay();
 
-		// Add all elements to container
+		// Add buttons to container
 		this.container.appendChild(this.playPauseButton);
 		this.container.appendChild(this.stopButton);
-		this.container.appendChild(this.progressBar);
-		this.container.appendChild(this.timeDisplay);
+
+		// Hide by default
+		this.hide();
 	}
 
 	/**
@@ -74,110 +73,107 @@ export class AudioPlayerStatusBar {
 	}
 
 	/**
-	 * Create progress bar
-	 */
-	private createProgressBar(): HTMLElement {
-		const progressContainer = this.container.createEl("div", {
-			cls: "narrator-player-progress-container",
-		});
-
-		const progressBar = progressContainer.createEl("div", {
-			cls: "narrator-player-progress-bar",
-		});
-
-		progressBar.createEl("div", {
-			cls: "narrator-player-progress-fill",
-		});
-
-		// Add click handler for seeking (placeholder)
-		progressBar.addEventListener("click", (e) => {
-			this.seek(e);
-		});
-
-		return progressContainer;
-	}
-
-	/**
-	 * Create time display (current time / duration)
-	 */
-	private createTimeDisplay(): HTMLElement {
-		const timeDisplay = this.container.createEl("span", {
-			cls: "narrator-player-time",
-			text: "0:00 / 0:00",
-		});
-
-		return timeDisplay;
-	}
-
-	/**
 	 * Toggle play/pause state
 	 */
-	private togglePlayPause(): void {
-		this.isPlaying = !this.isPlaying;
+	private async togglePlayPause(): Promise<void> {
+		if (!this.currentPlayer) {
+			new Notice("No audio playing");
+			return;
+		}
 
 		if (this.isPlaying) {
-			this.playPauseButton.setText("⏸️");
-			this.playPauseButton.setAttribute("aria-label", "Pause");
-			new Notice("Play clicked (placeholder)");
-		} else {
+			// Pause
+			await this.currentPlayer.pause();
+			this.isPlaying = false;
 			this.playPauseButton.setText("▶️");
 			this.playPauseButton.setAttribute("aria-label", "Play");
-			new Notice("Pause clicked (placeholder)");
+		} else {
+			// Resume
+			await this.currentPlayer.resume();
+			this.isPlaying = true;
+			this.playPauseButton.setText("⏸️");
+			this.playPauseButton.setAttribute("aria-label", "Pause");
 		}
 	}
 
 	/**
-	 * Stop playback
+	 * Stop playback and detach player
 	 */
 	private stop(): void {
+		if (!this.currentPlayer) {
+			return;
+		}
+
+		// Stop player
+		this.currentPlayer.stop();
+
+		// Cancel streaming if still in progress
+		if (this.cancelStreaming) {
+			this.cancelStreaming();
+		}
+
+		// Detach and cleanup
+		this.detachPlayer();
+	}
+
+	/**
+	 * Attach external streaming audio player
+	 * @param player StreamingAudioPlayer instance to control
+	 * @param cancel Function to cancel streaming
+	 */
+	public attachPlayer(player: StreamingAudioPlayer, cancel: () => void): void {
+		// Detach any previous player first
+		this.detachPlayer();
+
+		// Store player and cancel function
+		this.currentPlayer = player;
+		this.cancelStreaming = cancel;
+
+		// Show player UI
+		this.show();
+
+		// Update initial state
+		this.isPlaying = true;
+		this.playPauseButton.setText("⏸️");
+		this.playPauseButton.setAttribute("aria-label", "Pause");
+	}
+
+	/**
+	 * Detach current player and clean up
+	 */
+	public detachPlayer(): void {
+		// Clear references
+		this.currentPlayer = null;
+		this.cancelStreaming = null;
+
+		// Hide player UI
+		this.hide();
+
+		// Reset state
 		this.isPlaying = false;
 		this.playPauseButton.setText("▶️");
 		this.playPauseButton.setAttribute("aria-label", "Play");
-		this.progressFill.style.width = "0%";
-		this.timeDisplay.setText("0:00 / 0:00");
-
-		new Notice("Stop clicked (placeholder)");
 	}
 
 	/**
-	 * Seek to position in audio
+	 * Show the player UI
 	 */
-	private seek(event: MouseEvent): void {
-		const progressBar = event.currentTarget as HTMLElement;
-		const rect = progressBar.getBoundingClientRect();
-		const clickX = event.clientX - rect.left;
-		const percentage = (clickX / rect.width) * 100;
-
-		this.progressFill.style.width = `${percentage}%`;
-
-		new Notice(`Seek to ${percentage.toFixed(0)}% (placeholder)`);
+	public show(): void {
+		this.container.style.display = "flex";
 	}
 
 	/**
-	 * Update progress bar (for future use)
+	 * Hide the player UI
 	 */
-	public updateProgress(currentTime: number, duration: number): void {
-		const percentage = (currentTime / duration) * 100;
-		this.progressFill.style.width = `${percentage}%`;
-
-		const currentStr = this.formatTime(currentTime);
-		const durationStr = this.formatTime(duration);
-		this.timeDisplay.setText(`${currentStr} / ${durationStr}`);
-	}
-
-	/**
-	 * Format seconds to MM:SS
-	 */
-	private formatTime(seconds: number): string {
-		const mins = Math.floor(seconds / 60);
-		const secs = Math.floor(seconds % 60);
-		return `${mins}:${secs.toString().padStart(2, "0")}`;
+	public hide(): void {
+		this.container.style.display = "none";
 	}
 
 	/**
 	 * Clean up when plugin unloads
 	 */
 	public destroy(): void {
+		this.detachPlayer();
 		this.container.empty();
 	}
 }

@@ -15,6 +15,8 @@ export interface NarrationOptions {
 	voice: string;
 	speed?: number;
 	format?: AudioFormat;
+	onComplete?: (audioData: ArrayBuffer) => void; // Callback when streaming completes
+	onError?: (error: Error) => void; // Callback when error occurs
 }
 
 /**
@@ -25,6 +27,8 @@ export interface NarrationResponse {
 	audioData?: ArrayBuffer;
 	duration?: number;
 	format: AudioFormat;
+	player?: any; // StreamingAudioPlayer instance (using any to avoid circular dependency)
+	cancel?: () => void; // Function to cancel streaming
 }
 
 /**

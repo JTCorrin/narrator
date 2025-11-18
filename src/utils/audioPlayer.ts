@@ -7,7 +7,9 @@ export class StreamingAudioPlayer {
 	private audioChunks: Float32Array[] = [];
 	private sources: AudioBufferSourceNode[] = [];
 	private isPlaying = false;
+	private isPaused = false;
 	private scheduledTime = 0;
+	private startTime = 0; // When playback actually started
 	private sampleRate = 22050; // Default, updated from first chunk
 
 	constructor() {
@@ -31,8 +33,8 @@ export class StreamingAudioPlayer {
 			this.sampleRate = sampleRate;
 		}
 
-		// Resume AudioContext if suspended
-		if (this.audioContext.state === "suspended") {
+		// Resume AudioContext if suspended (but not if user paused)
+		if (this.audioContext.state === "suspended" && !this.isPaused) {
 			await this.audioContext.resume();
 		}
 
@@ -40,6 +42,7 @@ export class StreamingAudioPlayer {
 		if (!this.isPlaying) {
 			this.isPlaying = true;
 			this.scheduledTime = this.audioContext.currentTime + 0.1;
+			this.startTime = this.audioContext.currentTime;
 		}
 
 		try {
@@ -121,6 +124,66 @@ export class StreamingAudioPlayer {
 	}
 
 	/**
+	 * Get current playback time in seconds
+	 * Returns elapsed time since playback started
+	 */
+	public getCurrentTime(): number {
+		if (!this.isPlaying || this.startTime === 0) {
+			return 0;
+		}
+		return Math.max(0, this.audioContext.currentTime - this.startTime);
+	}
+
+	/**
+	 * Get total duration of collected audio in seconds
+	 */
+	public getTotalDuration(): number {
+		const totalSamples = this.audioChunks.reduce(
+			(sum, chunk) => sum + chunk.length,
+			0
+		);
+		return totalSamples / this.sampleRate;
+	}
+
+	/**
+	 * Check if audio is currently playing (not paused)
+	 */
+	public getIsPlaying(): boolean {
+		return this.isPlaying && !this.isPaused;
+	}
+
+	/**
+	 * Check if audio is paused
+	 */
+	public getIsPaused(): boolean {
+		return this.isPaused;
+	}
+
+	/**
+	 * Pause audio playback by suspending the AudioContext
+	 */
+	public async pause(): Promise<void> {
+		if (!this.isPlaying || this.isPaused) {
+			return;
+		}
+
+		await this.audioContext.suspend();
+		this.isPaused = true;
+	}
+
+	/**
+	 * Resume audio playback by resuming the AudioContext
+	 */
+	public async resume(): Promise<void> {
+		if (!this.isPlaying || !this.isPaused) {
+			return;
+		}
+
+		await this.audioContext.resume();
+		this.isPaused = false;
+	}
+
+	/**
 	 * Reset for new stream
 	 */
 	public reset(): void {
@@ -145,7 +208,9 @@ export class StreamingAudioPlayer {
 
 		this.sources = [];
 		this.isPlaying = false;
+		this.isPaused = false;
 		this.scheduledTime = 0;
+		this.startTime = 0;
 	}
 
 	/**
