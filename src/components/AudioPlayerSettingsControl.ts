@@ -1,5 +1,9 @@
 import { Notice } from "obsidian";
 import type NarratorPlugin from "../main";
+import { apiClient } from "../api";
+
+const VOICE_PREVIEW_TEXT =
+	"Hello. I'm one of the voices available in this Obsidian Narrator Plugin. Do you like how I sound?";
 
 /**
  * Audio player controls for voice preview in settings
@@ -15,6 +19,10 @@ export class AudioPlayerSettingsControl {
 	private timeDisplay: HTMLElement;
 	private progressBar: HTMLElement;
 	private progressFill: HTMLElement;
+
+	// Audio state
+	private currentAudio: HTMLAudioElement | null = null;
+	private currentAudioUrl: string | null = null;
 
 	constructor(container: HTMLElement, plugin: NarratorPlugin) {
 		this.container = container;
@@ -115,18 +123,23 @@ export class AudioPlayerSettingsControl {
 	 * Toggle play/pause state
 	 */
 	private togglePlayPause(): void {
-		this.isPlaying = !this.isPlaying;
+		if (!this.currentAudio) {
+			new Notice("No audio loaded. Use the Preview Voice button first.");
+			return;
+		}
 
 		if (this.isPlaying) {
+			// Pause
+			this.currentAudio.pause();
+			this.isPlaying = false;
+			this.playPauseButton.setText("▶️");
+			this.playPauseButton.setAttribute("aria-label", "Play preview");
+		} else {
+			// Play
+			this.currentAudio.play();
+			this.isPlaying = true;
 			this.playPauseButton.setText("⏸️");
 			this.playPauseButton.setAttribute("aria-label", "Pause preview");
-			new Notice(
-				`Preview voice: ${this.plugin.settings.voice} (placeholder)`
-			);
-		} else {
-			this.playPauseButton.setText("▶️");
-			this.playPauseButton.setAttribute("aria-label", "Preview voice");
-			new Notice("Pause preview (placeholder)");
 		}
 	}
 
@@ -134,27 +147,33 @@ export class AudioPlayerSettingsControl {
 	 * Stop playback
 	 */
 	private stop(): void {
+		if (this.currentAudio) {
+			this.currentAudio.pause();
+			this.currentAudio.currentTime = 0;
+		}
+
 		this.isPlaying = false;
 		this.playPauseButton.setText("▶️");
-		this.playPauseButton.setAttribute("aria-label", "Preview voice");
+		this.playPauseButton.setAttribute("aria-label", "Play preview");
 		this.progressFill.style.width = "0%";
 		this.timeDisplay.setText("0:00 / 0:00");
-
-		new Notice("Stop preview (placeholder)");
 	}
 
 	/**
 	 * Seek to position in audio
 	 */
 	private seek(event: MouseEvent): void {
+		if (!this.currentAudio || !this.currentAudio.duration) {
+			return;
+		}
+
 		const progressBar = event.currentTarget as HTMLElement;
 		const rect = progressBar.getBoundingClientRect();
 		const clickX = event.clientX - rect.left;
-		const percentage = (clickX / rect.width) * 100;
+		const percentage = clickX / rect.width;
 
-		this.progressFill.style.width = `${percentage}%`;
-
-		new Notice(`Seek preview to ${percentage.toFixed(0)}% (placeholder)`);
+		// Seek to position
+		this.currentAudio.currentTime = percentage * this.currentAudio.duration;
 	}
 
 	/**
@@ -179,9 +198,97 @@ export class AudioPlayerSettingsControl {
 	}
 
 	/**
+	 * Preview a voice by generating and playing sample audio
+	 * @param voiceName Voice to preview
+	 */
+	public async previewVoice(voiceName: string): Promise<void> {
+		try {
+			// Stop any currently playing audio
+			this.stop();
+
+			// Clean up previous audio
+			if (this.currentAudioUrl) {
+				URL.revokeObjectURL(this.currentAudioUrl);
+				this.currentAudioUrl = null;
+			}
+			this.currentAudio = null;
+
+			// Show loading in status bar
+			this.plugin.loadingIndicator?.show();
+
+			// Generate preview audio
+			const response = await apiClient.narration.narrateText(
+				VOICE_PREVIEW_TEXT,
+				{ voice: voiceName as any }
+			);
+
+			// Hide loading
+			this.plugin.loadingIndicator?.hide();
+
+			// Check if audioData exists
+			if (!response.audioData) {
+				throw new Error("No audio data received from server");
+			}
+
+			// Convert ArrayBuffer to Blob and create Object URL
+			const blob = new Blob([response.audioData], { type: "audio/wav" });
+			this.currentAudioUrl = URL.createObjectURL(blob);
+
+			// Create and setup audio element
+			this.currentAudio = new Audio(this.currentAudioUrl);
+
+			// Setup event listeners
+			this.currentAudio.addEventListener("timeupdate", () => {
+				if (this.currentAudio) {
+					this.updateProgress(
+						this.currentAudio.currentTime,
+						this.currentAudio.duration
+					);
+				}
+			});
+
+			this.currentAudio.addEventListener("ended", () => {
+				this.isPlaying = false;
+				this.playPauseButton.setText("▶️");
+				this.playPauseButton.setAttribute("aria-label", "Play preview");
+			});
+
+			// Auto-play the preview
+			await this.currentAudio.play();
+			this.isPlaying = true;
+			this.playPauseButton.setText("⏸️");
+			this.playPauseButton.setAttribute("aria-label", "Pause preview");
+
+		} catch (error) {
+			// Hide loading on error
+			this.plugin.loadingIndicator?.hide();
+
+			console.error("Error previewing voice:", error);
+			const errorMessage = error instanceof Error ? error.message : "Unknown error";
+			new Notice(`Preview failed: ${errorMessage}`);
+
+			// Reset UI state
+			this.stop();
+		}
+	}
+
+	/**
 	 * Clean up when settings are closed
 	 */
 	public destroy(): void {
+		// Stop and clean up audio
+		if (this.currentAudio) {
+			this.currentAudio.pause();
+			this.currentAudio.src = "";
+			this.currentAudio = null;
+		}
+
+		// Revoke Blob URL
+		if (this.currentAudioUrl) {
+			URL.revokeObjectURL(this.currentAudioUrl);
+			this.currentAudioUrl = null;
+		}
+
 		this.container.empty();
 	}
 }

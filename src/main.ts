@@ -7,7 +7,7 @@ import { LoadingIndicator } from "./components/LoadingIndicator";
 
 export default class NarratorPlugin extends Plugin {
 	settings!: NarratorSettings;
-	cachedVoices: VoiceType[] = [];
+	cachedVoices: string[] = [];
 	cachedModels: AIModel[] = [];
 	statusBarPlayer: AudioPlayerStatusBar | null = null;
 	loadingIndicator: LoadingIndicator | null = null;
@@ -157,23 +157,32 @@ export default class NarratorPlugin extends Plugin {
 		try {
 			const content = await this.app.vault.read(file);
 
-			new Notice(`Narrating: ${file.basename}`);
+			new Notice(`Streaming narration: ${file.basename}`);
 
-			// Call narration API
-			const response = await apiClient.narration.narrateFile(content, {
+			// Use WebSocket streaming for real-time playback
+			const response = await apiClient.narration.narrateTextStreaming(content, {
 				voice: this.settings.voice as any,
-				speed: this.settings.speed,
-				format: "mp3",
+				onComplete: async (audioData: ArrayBuffer) => {
+					// Save audio file
+					await this.saveAudioFile(
+						audioData,
+						file.basename,
+						"wav"
+					);
+					new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+
+					// Detach player from status bar
+					this.statusBarPlayer?.detachPlayer();
+				},
+				onError: (error: Error) => {
+					this.handleError(error, "Error narrating file");
+					this.statusBarPlayer?.detachPlayer();
+				}
 			});
 
-			// Save audio file
-			if (response.audioData) {
-				await this.saveAudioFile(
-					response.audioData,
-					file.basename,
-					response.format
-				);
-				new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+			// Connect player to status bar
+			if (response.player && response.cancel && this.statusBarPlayer) {
+				this.statusBarPlayer.attachPlayer(response.player, response.cancel);
 			}
 
 		} catch (error) {
@@ -186,24 +195,33 @@ export default class NarratorPlugin extends Plugin {
 	 */
 	private async narrateText(text: string, file: TFile | null) {
 		try {
-			new Notice("Narrating selected text...");
+			new Notice("Streaming narration...");
 
-			// Call narration API
-			const response = await apiClient.narration.narrateText(text, {
+			// Use WebSocket streaming for real-time playback
+			const response = await apiClient.narration.narrateTextStreaming(text, {
 				voice: this.settings.voice as any,
-				speed: this.settings.speed,
-				format: "mp3",
+				onComplete: async (audioData: ArrayBuffer) => {
+					// Save audio file
+					const filename = file ? `${file.basename}-selection` : "selection";
+					await this.saveAudioFile(
+						audioData,
+						filename,
+						"wav"
+					);
+					new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+
+					// Detach player from status bar
+					this.statusBarPlayer?.detachPlayer();
+				},
+				onError: (error: Error) => {
+					this.handleError(error, "Error narrating text");
+					this.statusBarPlayer?.detachPlayer();
+				}
 			});
 
-			// Save audio file
-			if (response.audioData) {
-				const filename = file ? `${file.basename}-selection` : "selection";
-				await this.saveAudioFile(
-					response.audioData,
-					filename,
-					response.format
-				);
-				new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+			// Connect player to status bar
+			if (response.player && response.cancel && this.statusBarPlayer) {
+				this.statusBarPlayer.attachPlayer(response.player, response.cancel);
 			}
 
 		} catch (error) {
@@ -269,7 +287,7 @@ export default class NarratorPlugin extends Plugin {
 
 		// Create filename with timestamp to avoid conflicts
 		const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-		const audioFilePath = `${folderPath}/${filename}-${timestamp}.${format}`;
+		const audioFilePath = `${folderPath}/${filename}-${this.settings.voice.split("/")[1]}-${timestamp}.${format}`;
 
 		// Convert ArrayBuffer to Uint8Array for Obsidian API
 		const uint8Array = new Uint8Array(audioData);

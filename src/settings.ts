@@ -5,10 +5,12 @@ import { AudioPlayerSettingsControl } from "./components/AudioPlayerSettingsCont
 export class NarratorSettingTab extends PluginSettingTab {
 	plugin: NarratorPlugin;
 	voicePreviewPlayer: AudioPlayerSettingsControl | null = null;
+	currentSelectedVoice: string;
 
 	constructor(app: App, plugin: NarratorPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+		this.currentSelectedVoice = plugin.settings.voice;
 	}
 
 	display(): void {
@@ -61,11 +63,27 @@ export class NarratorSettingTab extends PluginSettingTab {
 						.setValue(this.plugin.settings.voice)
 						.onChange(async (value) => {
 							this.plugin.settings.voice = value;
+							this.currentSelectedVoice = value;
 							await this.plugin.saveSettings();
 						});
 				} else {
 					// Show loading state
 					dropdown.addOption("loading", "Loading...").setDisabled(true);
+				}
+			})
+			.addButton((button) => {
+				if (voicesAvailable) {
+					button
+						.setButtonText("Preview Voice")
+						.onClick(async () => {
+							if (this.voicePreviewPlayer) {
+								await this.voicePreviewPlayer.previewVoice(
+									this.currentSelectedVoice
+								);
+							}
+						});
+				} else {
+					button.setButtonText("Preview Voice").setDisabled(true);
 				}
 			});
 
