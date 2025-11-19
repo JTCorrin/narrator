@@ -31,6 +31,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 						this.plugin.settings.apiKey = value;
 						await this.plugin.saveSettings();
 					})
+					.inputEl.setAttribute("type", "password")
 			);
 
 		// Voice Settings Section

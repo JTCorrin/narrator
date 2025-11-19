@@ -305,11 +305,13 @@ export default class NarratorPlugin extends Plugin {
 		try {
 			console.log("Loading voices from API...");
 			this.cachedVoices = await apiClient.narration.getVoices();
-			console.log(`Loaded ${this.cachedVoices.length} voices:`, this.cachedVoices);
 		} catch (error) {
 			console.error("Failed to load voices:", error);
-			// Fallback to default voices
-			this.cachedVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+			// Keep existing cached voices if API call fails
+			if (this.cachedVoices.length === 0) {
+				// Set empty array on failure - user will see "Loading..." in settings
+				this.cachedVoices = [];
+			}
 		}
 	}
 
@@ -320,7 +322,6 @@ export default class NarratorPlugin extends Plugin {
 		try {
 			console.log("Loading AI models from API...");
 			this.cachedModels = await apiClient.ai.getModels();
-			console.log(`Loaded ${this.cachedModels.length} models:`, this.cachedModels);
 		} catch (error) {
 			console.error("Failed to load AI models:", error);
 			// Empty array on failure - user will see "Loading..." in settings
