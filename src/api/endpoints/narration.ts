@@ -1,4 +1,4 @@
-import { apiRequest, getApiBaseUrl } from "../client";
+import { apiRequest, getApiBaseUrl, getApiKey } from "../client";
 import type {
 	NarrationOptions,
 	NarrationResponse,
@@ -112,7 +112,8 @@ export async function narrateTextStreaming(
 
 	// Convert http(s) to ws(s)
 	const wsUrl = baseUrl.replace(/^http/, "ws");
-	const wsEndpoint = `${wsUrl}/tts/stream?voice=${encodeURIComponent(voice)}`;
+	const apiKey = getApiKey();
+	const wsEndpoint = `${wsUrl}/tts/stream?voice=${encodeURIComponent(voice)}&api_key=${encodeURIComponent(apiKey)}`;
 
 	// Create player and WebSocket
 	const audioPlayer = new StreamingAudioPlayer();
@@ -240,7 +241,8 @@ export async function narrateScriptStreaming(
 
 	// Convert http(s) to ws(s)
 	const wsUrl = baseUrl.replace(/^http/, "ws");
-	const wsEndpoint = `${wsUrl}/tts/script/stream`;
+	const apiKey = getApiKey();
+	const wsEndpoint = `${wsUrl}/tts/script/stream?api_key=${encodeURIComponent(apiKey)}`;
 
 	// Create player and WebSocket
 	const audioPlayer = new StreamingAudioPlayer();

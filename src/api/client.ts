@@ -38,7 +38,7 @@ export function getApiBaseUrl(): string {
 /**
  * Get API key from configuration
  */
-function getApiKey(): string {
+export function getApiKey(): string {
 	if (!apiConfig?.apiKey) {
 		throw new AuthenticationError("API key not configured. Please set your API key in settings.");
 	}
