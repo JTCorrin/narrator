@@ -15,7 +15,7 @@ export async function generateScript(
 		`/script/format-json`,
 		{
 			method: "POST",
-			body: JSON.stringify({ text: content, model: modelName, or_api_key: options.orApiKey }),
+			body: JSON.stringify({ text: content, model: modelName }),
 			headers: {
 				"Content-Type": "application/json",
 			},
