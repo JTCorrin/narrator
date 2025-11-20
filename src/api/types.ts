@@ -20,6 +20,15 @@ export interface NarrationOptions {
 }
 
 /**
+ * Options for script narration requests
+ * Client extracts character voices from frontmatter and sends cleaned content
+ */
+export interface ScriptNarrationOptions extends Omit<NarrationOptions, 'voice'> {
+	defaultVoice: string;
+	voices?: Record<string, string>; // Character voice mappings: { "NARRATOR": "onyx", "IBRAHIM": "alloy" }
+}
+
+/**
  * Response from narration API
  */
 export interface NarrationResponse {
@@ -36,6 +45,7 @@ export interface NarrationResponse {
  */
 export interface ScriptOptions {
 	modelName?: string;
+	orApiKey?: string;
 }
 
 /**

@@ -1,9 +1,10 @@
-import { Notice, Plugin, TFile, Editor, MarkdownView, MarkdownFileInfo, Menu } from "obsidian";
+import { Notice, Plugin, TFile, Editor, MarkdownView, Menu } from "obsidian";
 import { NarratorSettingTab } from "./settings";
 import { NarratorSettings, DEFAULT_SETTINGS } from "./types";
 import { initApiClient, apiClient, NarratorApiError, VoiceType, AIModel } from "./api";
 import { AudioPlayerStatusBar } from "./components/AudioPlayerStatusBar";
 import { LoadingIndicator } from "./components/LoadingIndicator";
+import { isScriptFile, extractCharacterVoices, getCleanScriptContent } from "./utils/scriptParser";
 
 export default class NarratorPlugin extends Plugin {
 	settings!: NarratorSettings;
@@ -64,29 +65,43 @@ export default class NarratorPlugin extends Plugin {
 	}
 
 	private registerWorkspaceEvents() {
-		// File menu context: "Narrate" full note and "Create Script"
+		// File menu context: Conditional menu items based on file type
 		this.registerEvent(
 			// @ts-ignore - file-menu is a valid event type
 			this.app.workspace.on("file-menu", (menu: Menu, file: TFile) => {
 				// Only add menu items for markdown files
 				if (file.extension === "md") {
-					menu.addItem((item) => {
-						item
-							.setTitle("Narrate")
-							.setIcon("volume-2")
-							.onClick(async () => {
-								await this.narrateFile(file);
-							});
-					});
+					// Check if this is a script file
+					if (isScriptFile(file, this.app)) {
+						// Script-specific menu: "Narrate Script"
+						menu.addItem((item) => {
+							item
+								.setTitle("Narrate Script")
+								.setIcon("users") // Multi-character icon
+								.onClick(async () => {
+									await this.narrateScript(file);
+								});
+						});
+					} else {
+						// Regular file menus: "Narrate" and "Create Script"
+						menu.addItem((item) => {
+							item
+								.setTitle("Narrate")
+								.setIcon("volume-2")
+								.onClick(async () => {
+									await this.narrateFile(file);
+								});
+						});
 
-					menu.addItem((item) => {
-						item
-							.setTitle("Create Script")
-							.setIcon("file-text")
-							.onClick(async () => {
-								await this.createScript(file);
-							});
-					});
+						menu.addItem((item) => {
+							item
+								.setTitle("Create Script")
+								.setIcon("file-text")
+								.onClick(async () => {
+									await this.createScript(file);
+								});
+						});
+					}
 				}
 			})
 		);
@@ -125,27 +140,51 @@ export default class NarratorPlugin extends Plugin {
 	}
 
 	private addCommands() {
-		// Command palette command for narrating active note
+		// Command palette command for narrating active note (only for non-scripts)
 		this.addCommand({
 			id: "narrate-active-note",
 			name: "Narrate active note",
-			editorCallback: async (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
-				const file = ctx instanceof MarkdownView ? ctx.file : ctx.file;
-				if (file) {
-					await this.narrateFile(file);
+			checkCallback: (checking: boolean) => {
+				const file = this.app.workspace.getActiveFile();
+				if (file && file.extension === "md" && !isScriptFile(file, this.app)) {
+					if (!checking) {
+						this.narrateFile(file);
+					}
+					return true;
 				}
+				return false;
 			},
 		});
 
-		// Command palette command for creating script from active note
+		// Command palette command for creating script from active note (only for non-scripts)
 		this.addCommand({
 			id: "create-script-from-note",
 			name: "Create script from active note",
-			editorCallback: async (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
-				const file = ctx instanceof MarkdownView ? ctx.file : ctx.file;
-				if (file) {
-					await this.createScript(file);
+			checkCallback: (checking: boolean) => {
+				const file = this.app.workspace.getActiveFile();
+				if (file && file.extension === "md" && !isScriptFile(file, this.app)) {
+					if (!checking) {
+						this.createScript(file);
+					}
+					return true;
 				}
+				return false;
+			},
+		});
+
+		// Command palette command for narrating script (only for scripts)
+		this.addCommand({
+			id: "narrate-script",
+			name: "Narrate script",
+			checkCallback: (checking: boolean) => {
+				const file = this.app.workspace.getActiveFile();
+				if (file && file.extension === "md" && isScriptFile(file, this.app)) {
+					if (!checking) {
+						this.narrateScript(file);
+					}
+					return true;
+				}
+				return false;
 			},
 		});
 	}
@@ -241,6 +280,7 @@ export default class NarratorPlugin extends Plugin {
 			// Generate script using API client with selected model
 			const scriptResponse = await apiClient.scripting.generateScript(content, {
 				modelName: this.settings.aiModel || "gpt-4o-mini",
+				orApiKey: this.settings.openRouterApiKey,
 			});
 
 			// Create sibling file with "-script" suffix
@@ -266,6 +306,65 @@ export default class NarratorPlugin extends Plugin {
 
 		} catch (error) {
 			this.handleError(error, "Error creating script");
+		}
+	}
+
+	/**
+	 * Narrate a script with multi-character voice support
+	 * Extracts character voices from frontmatter and sends cleaned content to server
+	 */
+	private async narrateScript(file: TFile) {
+		try {
+			// Check if file is a script
+			if (!isScriptFile(file, this.app)) {
+				new Notice("This file is not a narrator script");
+				return;
+			}
+
+			// Read raw file content (includes frontmatter)
+			const rawContent = await this.app.vault.read(file);
+
+			// Extract character voices from frontmatter
+			const characterVoices = extractCharacterVoices(file, this.app);
+
+			// Get clean content (remove frontmatter and instructions)
+			const cleanContent = getCleanScriptContent(rawContent);
+
+			new Notice(`Streaming script narration: ${file.basename}`);
+			console.log(
+				`Script: ${file.basename}, ${Object.keys(characterVoices).length} character voices`
+			);
+
+			// Use WebSocket streaming for real-time playback
+			const response = await apiClient.narration.narrateScriptStreaming(
+				cleanContent,
+				file.basename,
+				{
+					defaultVoice: this.settings.voice,
+					voices: characterVoices,
+					onComplete: async (audioData: ArrayBuffer) => {
+						// Save audio file
+						await this.saveAudioFile(audioData, `${file.basename}-scripted`, "wav");
+						new Notice(
+							`Script narration complete! Audio saved to ${this.settings.audioOutputFolder}/`
+						);
+
+						// Detach player from status bar
+						this.statusBarPlayer?.detachPlayer();
+					},
+					onError: (error: Error) => {
+						this.handleError(error, "Error narrating script");
+						this.statusBarPlayer?.detachPlayer();
+					},
+				}
+			);
+
+			// Connect player to status bar
+			if (response.player && response.cancel && this.statusBarPlayer) {
+				this.statusBarPlayer.attachPlayer(response.player, response.cancel);
+			}
+		} catch (error) {
+			this.handleError(error, "Error narrating script");
 		}
 	}
 

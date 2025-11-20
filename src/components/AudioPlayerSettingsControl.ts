@@ -3,7 +3,7 @@ import type NarratorPlugin from "../main";
 import { apiClient } from "../api";
 
 const VOICE_PREVIEW_TEXT =
-	"Hello. I'm one of the voices available in this Obsidian Narrator Plugin. Do you like how I sound?";
+	"Hello. I'm one of the voices available in Obsidian Narrator. Do you like how I sound?";
 
 /**
  * Audio player controls for voice preview in settings
