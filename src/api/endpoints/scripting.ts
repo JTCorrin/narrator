@@ -12,9 +12,13 @@ export async function generateScript(
 
 	// Call the API to format the script
 	const result = await apiRequest<ScriptExtractionResult>(
-		`/script/format?text=${encodeURIComponent(content)}&model_name=${modelName}`,
+		`/script/format-json`,
 		{
 			method: "POST",
+			body: JSON.stringify({ text: content, model: modelName, or_api_key: options.orApiKey }),
+			headers: {
+				"Content-Type": "application/json",
+			},
 		}
 	);
 
@@ -29,6 +33,7 @@ export async function generateScript(
 
 	// Build the script content with frontmatter properties and instructions
 	const properties = `---
+narrator_script: true
 epoch: ${Date.now()}
 model_used: "${result.model_used || modelName}"
 processing_time: ${result.processing_time || 0}
