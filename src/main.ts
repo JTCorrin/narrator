@@ -25,7 +25,7 @@ export default class NarratorPlugin extends Plugin {
 
 		// Initialize API client with settings and loading callbacks
 		initApiClient({
-			baseUrl: "https://narrator-api.vercel.app/api/v1",
+			baseUrl: "https://narrator-api-production-81e4.up.railway.app/api/v1",
 			apiKey: this.settings.apiKey,
 			openRouterApiKey: this.settings.openRouterApiKey,
 			onLoadingStart: () => this.loadingIndicator?.show(),
@@ -451,7 +451,7 @@ export default class NarratorPlugin extends Plugin {
 
 		// Update API client when settings are loaded
 		initApiClient({
-			baseUrl: "https://narrator-api.vercel.app/api/v1",
+			baseUrl: "https://narrator-api-production-81e4.up.railway.app/api/v1",
 			apiKey: this.settings.apiKey,
 			openRouterApiKey: this.settings.openRouterApiKey,
 			onLoadingStart: () => this.loadingIndicator?.show(),
@@ -464,7 +464,7 @@ export default class NarratorPlugin extends Plugin {
 
 		// Update API client when settings are saved
 		initApiClient({
-			baseUrl: "https://narrator-api.vercel.app/api/v1",
+			baseUrl: "https://narrator-api-production-81e4.up.railway.app/api/v1",
 			apiKey: this.settings.apiKey,
 			openRouterApiKey: this.settings.openRouterApiKey,
 			onLoadingStart: () => this.loadingIndicator?.show(),
