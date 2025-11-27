@@ -48,6 +48,10 @@ export interface ScriptOptions {
 	orApiKey?: string;
 }
 
+export interface ModelsOptions {
+	orApiKey?: string;
+}
+
 /**
  * Script line from API
  */

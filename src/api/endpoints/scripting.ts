@@ -18,6 +18,7 @@ export async function generateScript(
 			body: JSON.stringify({ text: content, model: modelName }),
 			headers: {
 				"Content-Type": "application/json",
+				...(options.orApiKey && { "x-openrouter-api-key": options.orApiKey }),
 			},
 		}
 	);

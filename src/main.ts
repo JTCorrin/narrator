@@ -279,7 +279,8 @@ export default class NarratorPlugin extends Plugin {
 
 			// Generate script using API client with selected model
 			const scriptResponse = await apiClient.scripting.generateScript(content, {
-				modelName: this.settings.aiModel || "gpt-4o-mini"
+				modelName: this.settings.aiModel || "gpt-4o-mini",
+				orApiKey: this.settings.openRouterApiKey,
 			});
 
 			// Create sibling file with "-script" suffix
@@ -385,7 +386,8 @@ export default class NarratorPlugin extends Plugin {
 
 		// Create filename with timestamp to avoid conflicts
 		const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-		const audioFilePath = `${folderPath}/${filename}-${this.settings.voice.split("/")[1]}-${timestamp}.${format}`;
+		const voiceName = this.settings.voice.split("/").pop() || this.settings.voice;
+		const audioFilePath = `${folderPath}/${filename}-${voiceName}-${timestamp}.${format}`;
 
 		// Convert ArrayBuffer to Uint8Array for Obsidian API
 		const uint8Array = new Uint8Array(audioData);
@@ -419,7 +421,7 @@ export default class NarratorPlugin extends Plugin {
 	private async loadModelsAsync(): Promise<void> {
 		try {
 			console.log("Loading AI models from API...");
-			this.cachedModels = await apiClient.ai.getModels();
+			this.cachedModels = await apiClient.ai.getModels({ orApiKey: this.settings.openRouterApiKey});
 		} catch (error) {
 			console.error("Failed to load AI models:", error);
 			// Empty array on failure - user will see "Loading..." in settings
