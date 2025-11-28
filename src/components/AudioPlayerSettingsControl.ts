@@ -124,7 +124,7 @@ export class AudioPlayerSettingsControl {
 	 */
 	private togglePlayPause(): void {
 		if (!this.currentAudio) {
-			new Notice("No audio loaded. Use the Preview voice button first.");
+			new Notice("No audio loaded. Use the preview voice button first.");
 			return;
 		}
 

@@ -36,7 +36,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 			);
 
 		// Voice settings section
-		new Setting(containerEl).setName("Voice settings").setHeading();
+		new Setting(containerEl).setName("Voice").setHeading();
 
 		// Get voices from plugin (pre-loaded in background)
 		const voices = this.plugin.cachedVoices;
@@ -117,7 +117,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 			.setDesc("Folder path where audio files will be saved")
 			.addText((text) =>
 				text
-					.setPlaceholder("narration-audio")
+					.setPlaceholder("Narration-audio")
 					.setValue(this.plugin.settings.audioOutputFolder)
 					.onChange(async (value) => {
 						this.plugin.settings.audioOutputFolder = value;
@@ -129,11 +129,11 @@ export class NarratorSettingTab extends PluginSettingTab {
 		new Setting(containerEl).setName("AI configuration").setHeading();
 
 		new Setting(containerEl)
-			.setName("OpenRouter API key")
-			.setDesc("Enter your OpenRouter API key for AI model access")
+			.setName("OpenRouter API Key")
+			.setDesc("Enter your OpenRouter API Key for AI model access")
 			.addText((text) =>
 				text
-					.setPlaceholder("Enter your OpenRouter API key")
+					.setPlaceholder("Enter your OpenRouter API Key")
 					.setValue(this.plugin.settings.openRouterApiKey)
 					.onChange(async (value) => {
 						this.plugin.settings.openRouterApiKey = value;
