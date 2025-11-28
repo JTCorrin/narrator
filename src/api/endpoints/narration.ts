@@ -1,8 +1,8 @@
+import { requestUrl } from "obsidian";
 import { apiRequest, getApiBaseUrl, getApiKey } from "../client";
 import type {
 	NarrationOptions,
 	NarrationResponse,
-	VoiceType,
 	ScriptNarrationOptions
 } from "../types";
 import { StreamingAudioPlayer } from "../../utils/audioPlayer";
@@ -58,13 +58,13 @@ export async function getVoices(): Promise<string[]> {
  * Used if the API returns a URL instead of direct audio data
  */
 export async function downloadAudio(url: string): Promise<ArrayBuffer> {
-	const response = await fetch(url);
+	const response = await requestUrl({ url, method: "GET" });
 
-	if (!response.ok) {
-		throw new Error(`Failed to download audio: ${response.statusText}`);
+	if (response.status >= 400) {
+		throw new Error(`Failed to download audio: status ${response.status}`);
 	}
 
-	return await response.arrayBuffer();
+	return response.arrayBuffer;
 }
 
 /**
@@ -73,7 +73,7 @@ export async function downloadAudio(url: string): Promise<ArrayBuffer> {
  */
 export function createAudioBlob(
 	audioData: ArrayBuffer,
-	format: string = "mp3"
+	format = "mp3"
 ): Blob {
 	const mimeType = `audio/${format}`;
 	return new Blob([audioData], { type: mimeType });
@@ -103,10 +103,10 @@ function decodeBase64ToFloat32Array(base64: string): Float32Array {
  * Returns player instance immediately and handles streaming in background
  * Calls onComplete/onError callbacks when streaming finishes
  */
-export async function narrateTextStreaming(
+export function narrateTextStreaming(
 	text: string,
 	options: NarrationOptions
-): Promise<NarrationResponse> {
+): NarrationResponse {
 	const { voice, onComplete, onError } = options;
 	const baseUrl = getApiBaseUrl();
 
@@ -122,7 +122,7 @@ export async function narrateTextStreaming(
 
 	// Cancel function to stop streaming
 	const cancel = () => {
-		console.log("Canceling streaming narration...");
+		console.debug("Canceling streaming narration...");
 		audioPlayer.stop();
 		ws.close();
 	};
@@ -130,81 +130,85 @@ export async function narrateTextStreaming(
 	// Handle WebSocket events
 	ws.onopen = () => {
 		ws.send(text);
-		console.log("WebSocket opened, sending text for narration");
+		console.debug("WebSocket opened, sending text for narration");
 	};
 
-	ws.onmessage = async (event) => {
-		try {
-			// Parse JSON message
-			const msg = JSON.parse(event.data);
+	ws.onmessage = (event) => {
+		void (async () => {
+			try {
+				// Parse JSON message
+				const msg = JSON.parse(event.data);
 
-			if (msg.type === "audio") {
-				// Decode base64 to Float32Array
-				const audioData = decodeBase64ToFloat32Array(msg.data);
-				const sampleRate = msg.sample_rate || 22050;
+				if (msg.type === "audio") {
+					// Decode base64 to Float32Array
+					const audioData = decodeBase64ToFloat32Array(msg.data);
+					const sampleRate = msg.sample_rate || 22050;
 
-				// Play chunk immediately for real-time playback
-				await audioPlayer.addPCMChunk(audioData, sampleRate);
+					// Play chunk immediately for real-time playback
+					await audioPlayer.addPCMChunk(audioData, sampleRate);
 
-				chunkCount++;
-				console.log(`Played audio chunk ${chunkCount}`);
+					chunkCount++;
+					console.debug(`Played audio chunk ${chunkCount}`);
 
-			} else if (msg.type === "finalComplete") {
-				// Wait for all scheduled audio to finish playing
-				const remainingTime = audioPlayer.getRemainingPlaybackTime();
-				console.log(`Waiting ${remainingTime.toFixed(2)}s for playback to complete...`);
+				} else if (msg.type === "finalComplete") {
+					// Wait for all scheduled audio to finish playing
+					const remainingTime = audioPlayer.getRemainingPlaybackTime();
+					console.debug(`Waiting ${remainingTime.toFixed(2)}s for playback to complete...`);
 
-				// Add small buffer to ensure last chunk completes
-				const waitTime = (remainingTime + 0.1) * 1000; // Convert to ms and add 100ms buffer
+					// Add small buffer to ensure last chunk completes
+					const waitTime = (remainingTime + 0.1) * 1000; // Convert to ms and add 100ms buffer
 
-				setTimeout(async () => {
-					// Get all collected audio
-					const combinedAudio = audioPlayer.getCollectedAudio();
-					const sampleRate = audioPlayer.getSampleRate();
+					setTimeout(() => {
+						void (async () => {
+							// Get all collected audio
+							const combinedAudio = audioPlayer.getCollectedAudio();
+							const sampleRate = audioPlayer.getSampleRate();
 
-					// Encode to WAV format
-					const wavData = encodeWAV(combinedAudio, sampleRate);
+							// Encode to WAV format
+							const wavData = encodeWAV(combinedAudio, sampleRate);
 
-					// Clean up
+							// Clean up
+							await audioPlayer.destroy();
+							ws.close();
+
+							console.debug(`Streaming complete: ${chunkCount} chunks, ${combinedAudio.length} samples`);
+
+							// Call completion callback
+							if (onComplete) {
+								onComplete(wavData);
+							}
+						})();
+					}, waitTime);
+
+				} else if (msg.type === "error") {
+					const error = new Error(msg.message || "Streaming TTS failed");
+					console.error("Streaming error:", error);
+
 					await audioPlayer.destroy();
 					ws.close();
 
-					console.log(`Streaming complete: ${chunkCount} chunks, ${combinedAudio.length} samples`);
-
-					// Call completion callback
-					if (onComplete) {
-						onComplete(wavData);
+					// Call error callback
+					if (onError) {
+						onError(error);
 					}
-				}, waitTime);
+				}
 
-			} else if (msg.type === "error") {
-				const error = new Error(msg.message || "Streaming TTS failed");
-				console.error("Streaming error:", error);
-
+			} catch (error) {
+				console.error("Error processing WebSocket message:", error);
 				await audioPlayer.destroy();
 				ws.close();
 
 				// Call error callback
-				if (onError) {
+				if (onError && error instanceof Error) {
 					onError(error);
 				}
 			}
-
-		} catch (error) {
-			console.error("Error processing WebSocket message:", error);
-			await audioPlayer.destroy();
-			ws.close();
-
-			// Call error callback
-			if (onError && error instanceof Error) {
-				onError(error);
-			}
-		}
+		})();
 	};
 
-	ws.onerror = async (error) => {
+	ws.onerror = (error) => {
 		console.error("WebSocket error:", error);
-		await audioPlayer.destroy();
+		void audioPlayer.destroy();
 		ws.close();
 
 		// Call error callback
@@ -214,7 +218,7 @@ export async function narrateTextStreaming(
 	};
 
 	ws.onclose = () => {
-		console.log("WebSocket connection closed");
+		console.debug("WebSocket connection closed");
 	};
 
 	// Return immediately with player instance and cancel function
@@ -231,11 +235,11 @@ export async function narrateTextStreaming(
  * Returns player instance immediately and handles streaming in background
  * Calls onComplete/onError callbacks when streaming finishes
  */
-export async function narrateScriptStreaming(
+export function narrateScriptStreaming(
 	content: string,
 	filename: string,
 	options: ScriptNarrationOptions
-): Promise<NarrationResponse> {
+): NarrationResponse {
 	const { defaultVoice, voices, onComplete, onError } = options;
 	const baseUrl = getApiBaseUrl();
 
@@ -251,7 +255,7 @@ export async function narrateScriptStreaming(
 
 	// Cancel function to stop streaming
 	const cancel = () => {
-		console.log("Canceling script narration streaming...");
+		console.debug("Canceling script narration streaming...");
 		audioPlayer.stop();
 		ws.close();
 	};
@@ -267,82 +271,86 @@ export async function narrateScriptStreaming(
 	// Handle WebSocket events
 	ws.onopen = () => {
 		ws.send(JSON.stringify(requestPayload));
-		console.log("WebSocket opened, sending script for narration");
-		console.log(`Script: ${filename} (${content.length} characters)`);
+		console.debug("WebSocket opened, sending script for narration");
+		console.debug(`Script: ${filename} (${content.length} characters)`);
 	};
 
-	ws.onmessage = async (event) => {
-		try {
-			// Parse JSON message
-			const msg = JSON.parse(event.data);
+	ws.onmessage = (event) => {
+		void (async () => {
+			try {
+				// Parse JSON message
+				const msg = JSON.parse(event.data);
 
-			if (msg.type === "audio") {
-				// Decode base64 to Float32Array
-				const audioData = decodeBase64ToFloat32Array(msg.data);
-				const sampleRate = msg.sample_rate || 22050;
+				if (msg.type === "audio") {
+					// Decode base64 to Float32Array
+					const audioData = decodeBase64ToFloat32Array(msg.data);
+					const sampleRate = msg.sample_rate || 22050;
 
-				// Play chunk immediately for real-time playback
-				await audioPlayer.addPCMChunk(audioData, sampleRate);
+					// Play chunk immediately for real-time playback
+					await audioPlayer.addPCMChunk(audioData, sampleRate);
 
-				chunkCount++;
-				console.log(`Played audio chunk ${chunkCount}`);
+					chunkCount++;
+					console.debug(`Played audio chunk ${chunkCount}`);
 
-			} else if (msg.type === "finalComplete") {
-				// Wait for all scheduled audio to finish playing
-				const remainingTime = audioPlayer.getRemainingPlaybackTime();
-				console.log(`Waiting ${remainingTime.toFixed(2)}s for playback to complete...`);
+				} else if (msg.type === "finalComplete") {
+					// Wait for all scheduled audio to finish playing
+					const remainingTime = audioPlayer.getRemainingPlaybackTime();
+					console.debug(`Waiting ${remainingTime.toFixed(2)}s for playback to complete...`);
 
-				// Add small buffer to ensure last chunk completes
-				const waitTime = (remainingTime + 0.1) * 1000; // Convert to ms and add 100ms buffer
+					// Add small buffer to ensure last chunk completes
+					const waitTime = (remainingTime + 0.1) * 1000; // Convert to ms and add 100ms buffer
 
-				setTimeout(async () => {
-					// Get all collected audio
-					const combinedAudio = audioPlayer.getCollectedAudio();
-					const sampleRate = audioPlayer.getSampleRate();
+					setTimeout(() => {
+						void (async () => {
+							// Get all collected audio
+							const combinedAudio = audioPlayer.getCollectedAudio();
+							const sampleRate = audioPlayer.getSampleRate();
 
-					// Encode to WAV format
-					const wavData = encodeWAV(combinedAudio, sampleRate);
+							// Encode to WAV format
+							const wavData = encodeWAV(combinedAudio, sampleRate);
 
-					// Clean up
+							// Clean up
+							await audioPlayer.destroy();
+							ws.close();
+
+							console.debug(`Script streaming complete: ${chunkCount} chunks, ${combinedAudio.length} samples`);
+
+							// Call completion callback
+							if (onComplete) {
+								onComplete(wavData);
+							}
+						})();
+					}, waitTime);
+
+				} else if (msg.type === "error") {
+					const error = new Error(msg.message || "Streaming script TTS failed");
+					console.error("Script streaming error:", error);
+
 					await audioPlayer.destroy();
 					ws.close();
 
-					console.log(`Script streaming complete: ${chunkCount} chunks, ${combinedAudio.length} samples`);
-
-					// Call completion callback
-					if (onComplete) {
-						onComplete(wavData);
+					// Call error callback
+					if (onError) {
+						onError(error);
 					}
-				}, waitTime);
+				}
 
-			} else if (msg.type === "error") {
-				const error = new Error(msg.message || "Streaming script TTS failed");
-				console.error("Script streaming error:", error);
-
+			} catch (error) {
+				console.error("Error processing WebSocket message:", error);
 				await audioPlayer.destroy();
 				ws.close();
 
 				// Call error callback
-				if (onError) {
+				if (onError && error instanceof Error) {
 					onError(error);
 				}
 			}
-
-		} catch (error) {
-			console.error("Error processing WebSocket message:", error);
-			await audioPlayer.destroy();
-			ws.close();
-
-			// Call error callback
-			if (onError && error instanceof Error) {
-				onError(error);
-			}
-		}
+		})();
 	};
 
-	ws.onerror = async (error) => {
+	ws.onerror = (error) => {
 		console.error("WebSocket error:", error);
-		await audioPlayer.destroy();
+		void audioPlayer.destroy();
 		ws.close();
 
 		// Call error callback
@@ -352,7 +360,7 @@ export async function narrateScriptStreaming(
 	};
 
 	ws.onclose = () => {
-		console.log("WebSocket connection closed");
+		console.debug("WebSocket connection closed");
 	};
 
 	// Return immediately with player instance and cancel function

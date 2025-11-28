@@ -29,6 +29,25 @@ export interface ScriptNarrationOptions extends Omit<NarrationOptions, 'voice'> 
 }
 
 /**
+ * Interface for streaming audio player to avoid circular dependency
+ */
+export interface IStreamingAudioPlayer {
+	addPCMChunk(audioData: Float32Array, sampleRate: number): Promise<void>;
+	getCollectedAudio(): Float32Array;
+	getSampleRate(): number;
+	getRemainingPlaybackTime(): number;
+	getCurrentTime(): number;
+	getTotalDuration(): number;
+	getIsPlaying(): boolean;
+	getIsPaused(): boolean;
+	pause(): Promise<void>;
+	resume(): Promise<void>;
+	reset(): void;
+	stop(): void;
+	destroy(): Promise<void>;
+}
+
+/**
  * Response from narration API
  */
 export interface NarrationResponse {
@@ -36,7 +55,7 @@ export interface NarrationResponse {
 	audioData?: ArrayBuffer;
 	duration?: number;
 	format: AudioFormat;
-	player?: any; // StreamingAudioPlayer instance (using any to avoid circular dependency)
+	player?: IStreamingAudioPlayer; // StreamingAudioPlayer instance
 	cancel?: () => void; // Function to cancel streaming
 }
 

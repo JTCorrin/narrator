@@ -1,6 +1,6 @@
 import { Notice } from "obsidian";
 import type NarratorPlugin from "../main";
-import { StreamingAudioPlayer } from "../utils/audioPlayer";
+import type { IStreamingAudioPlayer } from "../api/types";
 
 /**
  * Audio player controls displayed in Obsidian's status bar
@@ -15,7 +15,7 @@ export class AudioPlayerStatusBar {
 	private stopButton: HTMLElement;
 
 	// External player control
-	private currentPlayer: StreamingAudioPlayer | null = null;
+	private currentPlayer: IStreamingAudioPlayer | null = null;
 	private cancelStreaming: (() => void) | null = null;
 
 	constructor(container: HTMLElement, plugin: NarratorPlugin) {
@@ -48,7 +48,7 @@ export class AudioPlayerStatusBar {
 		button.setText("▶️");
 
 		button.addEventListener("click", () => {
-			this.togglePlayPause();
+			void this.togglePlayPause();
 		});
 
 		return button;
@@ -121,7 +121,7 @@ export class AudioPlayerStatusBar {
 	 * @param player StreamingAudioPlayer instance to control
 	 * @param cancel Function to cancel streaming
 	 */
-	public attachPlayer(player: StreamingAudioPlayer, cancel: () => void): void {
+	public attachPlayer(player: IStreamingAudioPlayer, cancel: () => void): void {
 		// Detach any previous player first
 		this.detachPlayer();
 
@@ -159,14 +159,14 @@ export class AudioPlayerStatusBar {
 	 * Show the player UI
 	 */
 	public show(): void {
-		this.container.style.display = "flex";
+		this.container.removeClass("narrator-hidden");
 	}
 
 	/**
 	 * Hide the player UI
 	 */
 	public hide(): void {
-		this.container.style.display = "none";
+		this.container.addClass("narrator-hidden");
 	}
 
 	/**

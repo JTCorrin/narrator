@@ -72,7 +72,7 @@ ${result.formatted_text}
  * Parse and extract characters from text
  * Looks for dialogue patterns and speaker attributions
  */
-export async function parseCharacters(content: string): Promise<Character[]> {
+export function parseCharacters(content: string): Character[] {
 	const characters: Map<string, number> = new Map();
 
 	// Look for quoted dialogue with attribution
@@ -110,11 +110,11 @@ export async function parseCharacters(content: string): Promise<Character[]> {
  * Validate script format
  * Checks if script follows the expected [CHARACTER] format
  */
-export async function validateScript(script: string): Promise<{
+export function validateScript(script: string): {
 	isValid: boolean;
 	errors: string[];
 	characters: string[];
-}> {
+} {
 	const errors: string[] = [];
 	const characters = new Set<string>();
 
@@ -175,12 +175,12 @@ export async function validateScript(script: string): Promise<{
  * Extract script metadata
  * Returns information about the script structure
  */
-export async function getScriptMetadata(script: string): Promise<{
+export function getScriptMetadata(script: string): {
 	characterCount: number;
 	totalLines: number;
 	charactersWithLineCounts: Record<string, number>;
-}> {
-	const validation = await validateScript(script);
+} {
+	const validation = validateScript(script);
 
 	const charactersWithLineCounts: Record<string, number> = {};
 	let currentCharacter: string | null = null;

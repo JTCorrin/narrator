@@ -201,7 +201,7 @@ export class StreamingAudioPlayer {
 			try {
 				source.stop();
 				source.disconnect();
-			} catch (e) {
+			} catch {
 				// Source might already be stopped
 			}
 		}

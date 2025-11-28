@@ -1,3 +1,4 @@
+import { requestUrl, RequestUrlParam, RequestUrlResponse } from "obsidian";
 import {
 	NarratorApiError,
 	AuthenticationError,
@@ -78,6 +79,7 @@ function parseErrorResponse(data: unknown, statusCode: number): NarratorApiError
 
 /**
  * Generic API request function with authentication
+ * Uses Obsidian's requestUrl for compatibility
  */
 export async function apiRequest<T = unknown>(
 	endpoint: string,
@@ -87,18 +89,30 @@ export async function apiRequest<T = unknown>(
 	const baseUrl = getApiBaseUrl();
 	const url = `${baseUrl}${endpoint}`;
 
-	const headers = new Headers(options.headers || {});
-	headers.set("Content-Type", "application/json");
-	headers.set("x-api-key", apiKey);
+	// Build headers object for requestUrl
+	const headers: Record<string, string> = {
+		"Content-Type": "application/json",
+		"x-api-key": apiKey,
+	};
 
 	// Add OpenRouter API key if configured
 	if (apiConfig?.openRouterApiKey) {
-		headers.set("x-openrouter-key", apiConfig.openRouterApiKey);
+		headers["x-openrouter-key"] = apiConfig.openRouterApiKey;
 	}
 
-	const requestOptions: RequestInit = {
-		...options,
+	// Merge any additional headers from options
+	if (options.headers) {
+		const optHeaders = options.headers as Record<string, string>;
+		Object.assign(headers, optHeaders);
+	}
+
+	// Build requestUrl params
+	const requestParams: RequestUrlParam = {
+		url,
+		method: (options.method as string) || "GET",
 		headers,
+		body: options.body as string | undefined,
+		throw: false, // Handle errors manually for better error messages
 	};
 
 	// Show loading indicator
@@ -107,19 +121,19 @@ export async function apiRequest<T = unknown>(
 	}
 
 	try {
-		const response = await fetch(url, requestOptions);
+		const response: RequestUrlResponse = await requestUrl(requestParams);
 
 		// Handle non-JSON responses (like audio files)
-		const contentType = response.headers.get("content-type");
+		const contentType = response.headers["content-type"] || "";
 
-		if (!response.ok) {
+		if (response.status >= 400) {
 			// Try to parse error as JSON
 			let errorData: unknown;
 			try {
-				errorData = await response.json();
+				errorData = response.json;
 			} catch {
 				throw new NarratorApiError(
-					`Request failed: ${response.statusText}`,
+					`Request failed with status ${response.status}`,
 					response.status
 				);
 			}
@@ -127,8 +141,8 @@ export async function apiRequest<T = unknown>(
 		}
 
 		// Handle binary responses
-		if (contentType?.includes("audio/") || contentType?.includes("application/octet-stream")) {
-			const result = (await response.arrayBuffer()) as T;
+		if (contentType.includes("audio/") || contentType.includes("application/octet-stream")) {
+			const result = response.arrayBuffer as T;
 			// Hide loading indicator on success
 			if (apiConfig?.onLoadingEnd) {
 				apiConfig.onLoadingEnd();
@@ -137,8 +151,8 @@ export async function apiRequest<T = unknown>(
 		}
 
 		// Handle JSON responses
-		if (contentType?.includes("application/json")) {
-			const result = await response.json();
+		if (contentType.includes("application/json")) {
+			const result = response.json as T;
 			// Hide loading indicator on success
 			if (apiConfig?.onLoadingEnd) {
 				apiConfig.onLoadingEnd();
@@ -147,7 +161,7 @@ export async function apiRequest<T = unknown>(
 		}
 
 		// Handle text responses
-		const result = (await response.text()) as T;
+		const result = response.text as T;
 		// Hide loading indicator on success
 		if (apiConfig?.onLoadingEnd) {
 			apiConfig.onLoadingEnd();
@@ -185,14 +199,13 @@ export async function apiRequest<T = unknown>(
 export async function apiRequestWithValidation<T = unknown>(
 	endpoint: string,
 	options: RequestInit = {},
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	validator?: (data: unknown) => T
+	_validator?: (data: unknown) => T
 ): Promise<T> {
 	const response = await apiRequest<T>(endpoint, options);
 
 	// Future: Add validation here
-	// if (validator) {
-	//   return validator(response);
+	// if (_validator) {
+	//   return _validator(response);
 	// }
 
 	return response;

@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type NarratorPlugin from "./main";
+import type { AIModel } from "./api";
 import { AudioPlayerSettingsControl } from "./components/AudioPlayerSettingsControl";
 
 export class NarratorSettingTab extends PluginSettingTab {
@@ -17,11 +18,11 @@ export class NarratorSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		// API Configuration Section
-		containerEl.createEl("h2", { text: "API Configuration" });
+		// API configuration section
+		new Setting(containerEl).setName("API configuration").setHeading();
 
 		new Setting(containerEl)
-			.setName("Narrator API Key")
+			.setName("Narrator API key")
 			.setDesc("Enter your API key for the narration service (if required)")
 			.addText((text) =>
 				text
@@ -34,8 +35,8 @@ export class NarratorSettingTab extends PluginSettingTab {
 					.inputEl.setAttribute("type", "password")
 			);
 
-		// Voice Settings Section
-		containerEl.createEl("h2", { text: "Voice Settings" });
+		// Voice settings section
+		new Setting(containerEl).setName("Voice settings").setHeading();
 
 		// Get voices from plugin (pre-loaded in background)
 		const voices = this.plugin.cachedVoices;
@@ -75,16 +76,16 @@ export class NarratorSettingTab extends PluginSettingTab {
 			.addButton((button) => {
 				if (voicesAvailable) {
 					button
-						.setButtonText("Preview Voice")
-						.onClick(async () => {
+						.setButtonText("Preview voice")
+						.onClick(() => {
 							if (this.voicePreviewPlayer) {
-								await this.voicePreviewPlayer.previewVoice(
+								void this.voicePreviewPlayer.previewVoice(
 									this.currentSelectedVoice
 								);
 							}
 						});
 				} else {
-					button.setButtonText("Preview Voice").setDisabled(true);
+					button.setButtonText("Preview voice").setDisabled(true);
 				}
 			});
 
@@ -112,7 +113,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Audio Output Folder")
+			.setName("Audio output folder")
 			.setDesc("Folder path where audio files will be saved")
 			.addText((text) =>
 				text
@@ -124,11 +125,11 @@ export class NarratorSettingTab extends PluginSettingTab {
 					})
 			);
 
-		// AI Configuration Section
-		containerEl.createEl("h2", { text: "AI Configuration" });
+		// AI configuration section
+		new Setting(containerEl).setName("AI configuration").setHeading();
 
 		new Setting(containerEl)
-			.setName("OpenRouter API Key")
+			.setName("OpenRouter API key")
 			.setDesc("Enter your OpenRouter API key for AI model access")
 			.addText((text) =>
 				text
@@ -145,9 +146,9 @@ export class NarratorSettingTab extends PluginSettingTab {
 		const models = this.plugin.cachedModels;
 		const modelsAvailable = models.length > 0;
 
-		// Create the AI Model dropdown setting
+		// Create the AI model dropdown setting
 		new Setting(containerEl)
-			.setName("AI Model")
+			.setName("AI model")
 			.setDesc(
 				modelsAvailable
 					? `Select the AI model for script generation (${models.length} available)`
@@ -192,7 +193,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 	 */
 	private updateModelDetailsDisplay(
 		container: HTMLElement,
-		models: any[],
+		models: AIModel[],
 		modelId: string
 	): void {
 		container.empty();
@@ -204,10 +205,8 @@ export class NarratorSettingTab extends PluginSettingTab {
 
 		// Create details container
 		const detailsEl = container.createEl("div", {
-			cls: "setting-item-description",
+			cls: "setting-item-description narrator-model-details-info",
 		});
-		detailsEl.style.marginTop = "8px";
-		detailsEl.style.paddingLeft = "0";
 
 		// Add context length
 		if (selectedModel.context_length) {

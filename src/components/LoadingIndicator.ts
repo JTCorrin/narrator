@@ -31,7 +31,7 @@ export class LoadingIndicator {
 	 */
 	public show(): void {
 		this.activeRequests++;
-		this.spinner.style.display = "inline-block";
+		this.spinner.removeClass("narrator-hidden");
 	}
 
 	/**
@@ -42,7 +42,7 @@ export class LoadingIndicator {
 		this.activeRequests = Math.max(0, this.activeRequests - 1);
 
 		if (this.activeRequests === 0) {
-			this.spinner.style.display = "none";
+			this.spinner.addClass("narrator-hidden");
 		}
 	}
 

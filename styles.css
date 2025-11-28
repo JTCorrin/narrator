@@ -147,3 +147,19 @@
 		transform: rotate(360deg);
 	}
 }
+
+/* Utility Classes */
+.narrator-hidden {
+	display: none !important;
+}
+
+/* Model Details Info in Settings */
+.narrator-model-details-info {
+	margin-top: 8px;
+	padding-left: 0;
+}
+
+/* Progress bar width using CSS custom property */
+.narrator-player-progress-fill {
+	width: var(--progress-width, 0%);
+}

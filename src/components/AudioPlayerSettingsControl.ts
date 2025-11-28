@@ -124,7 +124,7 @@ export class AudioPlayerSettingsControl {
 	 */
 	private togglePlayPause(): void {
 		if (!this.currentAudio) {
-			new Notice("No audio loaded. Use the Preview Voice button first.");
+			new Notice("No audio loaded. Use the Preview voice button first.");
 			return;
 		}
 
@@ -136,7 +136,7 @@ export class AudioPlayerSettingsControl {
 			this.playPauseButton.setAttribute("aria-label", "Play preview");
 		} else {
 			// Play
-			this.currentAudio.play();
+			void this.currentAudio.play();
 			this.isPlaying = true;
 			this.playPauseButton.setText("⏸️");
 			this.playPauseButton.setAttribute("aria-label", "Pause preview");
@@ -155,8 +155,15 @@ export class AudioPlayerSettingsControl {
 		this.isPlaying = false;
 		this.playPauseButton.setText("▶️");
 		this.playPauseButton.setAttribute("aria-label", "Play preview");
-		this.progressFill.style.width = "0%";
+		this.updateProgressWidth(0);
 		this.timeDisplay.setText("0:00 / 0:00");
+	}
+
+	/**
+	 * Update progress bar width using CSS custom property
+	 */
+	private updateProgressWidth(percentage: number): void {
+		this.progressFill.setCssProps({ "--progress-width": `${percentage}%` });
 	}
 
 	/**
@@ -181,7 +188,7 @@ export class AudioPlayerSettingsControl {
 	 */
 	public updateProgress(currentTime: number, duration: number): void {
 		const percentage = (currentTime / duration) * 100;
-		this.progressFill.style.width = `${percentage}%`;
+		this.updateProgressWidth(percentage);
 
 		const currentStr = this.formatTime(currentTime);
 		const durationStr = this.formatTime(duration);
@@ -219,7 +226,7 @@ export class AudioPlayerSettingsControl {
 			// Generate preview audio
 			const response = await apiClient.narration.narrateText(
 				VOICE_PREVIEW_TEXT,
-				{ voice: voiceName as any }
+				{ voice: voiceName }
 			);
 
 			// Hide loading

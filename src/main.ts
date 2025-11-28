@@ -1,7 +1,7 @@
 import { Notice, Plugin, TFile, Editor, MarkdownView, Menu } from "obsidian";
 import { NarratorSettingTab } from "./settings";
 import { NarratorSettings, DEFAULT_SETTINGS } from "./types";
-import { initApiClient, apiClient, NarratorApiError, VoiceType, AIModel } from "./api";
+import { initApiClient, apiClient, NarratorApiError, AIModel } from "./api";
 import { AudioPlayerStatusBar } from "./components/AudioPlayerStatusBar";
 import { LoadingIndicator } from "./components/LoadingIndicator";
 import { isScriptFile, extractCharacterVoices, getCleanScriptContent } from "./utils/scriptParser";
@@ -14,7 +14,7 @@ export default class NarratorPlugin extends Plugin {
 	loadingIndicator: LoadingIndicator | null = null;
 
 	async onload() {
-		console.log("Loading Narrator plugin");
+		console.debug("Loading Narrator plugin");
 
 		// Load saved settings
 		await this.loadSettings();
@@ -37,12 +37,12 @@ export default class NarratorPlugin extends Plugin {
 
 		// Load voices and models asynchronously after workspace is ready
 		if (this.app.workspace.layoutReady) {
-			this.loadVoicesAsync();
-			this.loadModelsAsync();
+			void this.loadVoicesAsync();
+			void this.loadModelsAsync();
 		} else {
 			this.app.workspace.onLayoutReady(() => {
-				this.loadVoicesAsync();
-				this.loadModelsAsync();
+				void this.loadVoicesAsync();
+				void this.loadModelsAsync();
 			});
 		}
 
@@ -54,7 +54,7 @@ export default class NarratorPlugin extends Plugin {
 	}
 
 	onunload() {
-		console.log("Unloading Narrator plugin");
+		console.debug("Unloading Narrator plugin");
 
 		// Clean up status bar components
 		if (this.statusBarPlayer) {
@@ -74,32 +74,32 @@ export default class NarratorPlugin extends Plugin {
 				if (file.extension === "md") {
 					// Check if this is a script file
 					if (isScriptFile(file, this.app)) {
-						// Script-specific menu: "Narrate Script"
+						// Script-specific menu: "Narrate script"
 						menu.addItem((item) => {
 							item
-								.setTitle("Narrate Script")
+								.setTitle("Narrate script")
 								.setIcon("users") // Multi-character icon
-								.onClick(async () => {
-									await this.narrateScript(file);
+								.onClick(() => {
+									void this.narrateScript(file);
 								});
 						});
 					} else {
-						// Regular file menus: "Narrate" and "Create Script"
+						// Regular file menus: "Narrate" and "Create script"
 						menu.addItem((item) => {
 							item
 								.setTitle("Narrate")
 								.setIcon("volume-2")
-								.onClick(async () => {
-									await this.narrateFile(file);
+								.onClick(() => {
+									void this.narrateFile(file);
 								});
 						});
 
 						menu.addItem((item) => {
 							item
-								.setTitle("Create Script")
+								.setTitle("Create script")
 								.setIcon("file-text")
-								.onClick(async () => {
-									await this.createScript(file);
+								.onClick(() => {
+									void this.createScript(file);
 								});
 						});
 					}
@@ -117,10 +117,10 @@ export default class NarratorPlugin extends Plugin {
 				if (selectedText) {
 					menu.addItem((item) => {
 						item
-							.setTitle("Narrate Selection")
+							.setTitle("Narrate selection")
 							.setIcon("volume-2")
-							.onClick(async () => {
-								await this.narrateText(selectedText, view.file);
+							.onClick(() => {
+								void this.narrateText(selectedText, view.file);
 							});
 					});
 				}
@@ -131,13 +131,13 @@ export default class NarratorPlugin extends Plugin {
 	private initializeStatusBar() {
 		const statusBarContainer = this.addStatusBarItem();
 		this.statusBarPlayer = new AudioPlayerStatusBar(statusBarContainer, this);
-		console.log("Audio player status bar initialized");
+		console.debug("Audio player status bar initialized");
 	}
 
 	private initializeLoadingIndicator() {
 		const loadingContainer = this.addStatusBarItem();
 		this.loadingIndicator = new LoadingIndicator(loadingContainer);
-		console.log("Loading indicator initialized");
+		console.debug("Loading indicator initialized");
 	}
 
 	private addCommands() {
@@ -149,7 +149,7 @@ export default class NarratorPlugin extends Plugin {
 				const file = this.app.workspace.getActiveFile();
 				if (file && file.extension === "md" && !isScriptFile(file, this.app)) {
 					if (!checking) {
-						this.narrateFile(file);
+						void this.narrateFile(file);
 					}
 					return true;
 				}
@@ -165,7 +165,7 @@ export default class NarratorPlugin extends Plugin {
 				const file = this.app.workspace.getActiveFile();
 				if (file && file.extension === "md" && !isScriptFile(file, this.app)) {
 					if (!checking) {
-						this.createScript(file);
+						void this.createScript(file);
 					}
 					return true;
 				}
@@ -181,7 +181,7 @@ export default class NarratorPlugin extends Plugin {
 				const file = this.app.workspace.getActiveFile();
 				if (file && file.extension === "md" && isScriptFile(file, this.app)) {
 					if (!checking) {
-						this.narrateScript(file);
+						void this.narrateScript(file);
 					}
 					return true;
 				}
@@ -200,16 +200,17 @@ export default class NarratorPlugin extends Plugin {
 			new Notice(`Streaming narration: ${file.basename}`);
 
 			// Use WebSocket streaming for real-time playback
-			const response = await apiClient.narration.narrateTextStreaming(content, {
-				voice: this.settings.voice as any,
-				onComplete: async (audioData: ArrayBuffer) => {
+			const response = apiClient.narration.narrateTextStreaming(content, {
+				voice: this.settings.voice,
+				onComplete: (audioData: ArrayBuffer) => {
 					// Save audio file
-					await this.saveAudioFile(
+					void this.saveAudioFile(
 						audioData,
 						file.basename,
 						"wav"
-					);
-					new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+					).then(() => {
+						new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+					});
 
 					// Detach player from status bar
 					this.statusBarPlayer?.detachPlayer();
@@ -233,22 +234,23 @@ export default class NarratorPlugin extends Plugin {
 	/**
 	 * Narrate selected text
 	 */
-	private async narrateText(text: string, file: TFile | null) {
+	private narrateText(text: string, file: TFile | null) {
 		try {
 			new Notice("Streaming narration...");
 
 			// Use WebSocket streaming for real-time playback
-			const response = await apiClient.narration.narrateTextStreaming(text, {
-				voice: this.settings.voice as any,
-				onComplete: async (audioData: ArrayBuffer) => {
+			const response = apiClient.narration.narrateTextStreaming(text, {
+				voice: this.settings.voice,
+				onComplete: (audioData: ArrayBuffer) => {
 					// Save audio file
 					const filename = file ? `${file.basename}-selection` : "selection";
-					await this.saveAudioFile(
+					void this.saveAudioFile(
 						audioData,
 						filename,
 						"wav"
-					);
-					new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+					).then(() => {
+						new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
+					});
 
 					// Detach player from status bar
 					this.statusBarPlayer?.detachPlayer();
@@ -332,23 +334,24 @@ export default class NarratorPlugin extends Plugin {
 			const cleanContent = getCleanScriptContent(rawContent);
 
 			new Notice(`Streaming script narration: ${file.basename}`);
-			console.log(
+			console.debug(
 				`Script: ${file.basename}, ${Object.keys(characterVoices).length} character voices`
 			);
 
 			// Use WebSocket streaming for real-time playback
-			const response = await apiClient.narration.narrateScriptStreaming(
+			const response = apiClient.narration.narrateScriptStreaming(
 				cleanContent,
 				file.basename,
 				{
 					defaultVoice: this.settings.voice,
 					voices: characterVoices,
-					onComplete: async (audioData: ArrayBuffer) => {
+					onComplete: (audioData: ArrayBuffer) => {
 						// Save audio file
-						await this.saveAudioFile(audioData, `${file.basename}-scripted`, "wav");
-						new Notice(
-							`Script narration complete! Audio saved to ${this.settings.audioOutputFolder}/`
-						);
+						void this.saveAudioFile(audioData, `${file.basename}-scripted`, "wav").then(() => {
+							new Notice(
+								`Script narration complete! Audio saved to ${this.settings.audioOutputFolder}/`
+							);
+						});
 
 						// Detach player from status bar
 						this.statusBarPlayer?.detachPlayer();
@@ -396,7 +399,7 @@ export default class NarratorPlugin extends Plugin {
 		// Save the audio file
 		await this.app.vault.createBinary(audioFilePath, uint8Array.buffer);
 
-		console.log(`Audio saved to: ${audioFilePath}`);
+		console.debug(`Audio saved to: ${audioFilePath}`);
 	}
 
 	/**
@@ -404,7 +407,7 @@ export default class NarratorPlugin extends Plugin {
 	 */
 	private async loadVoicesAsync(): Promise<void> {
 		try {
-			console.log("Loading voices from API...");
+			console.debug("Loading voices from API...");
 			this.cachedVoices = await apiClient.narration.getVoices();
 		} catch (error) {
 			console.error("Failed to load voices:", error);
@@ -421,7 +424,7 @@ export default class NarratorPlugin extends Plugin {
 	 */
 	private async loadModelsAsync(): Promise<void> {
 		try {
-			console.log("Loading AI models from API...");
+			console.debug("Loading AI models from API...");
 			this.cachedModels = await apiClient.ai.getModels({ orApiKey: this.settings.openRouterApiKey});
 		} catch (error) {
 			console.error("Failed to load AI models:", error);
