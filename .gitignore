@@ -43,4 +43,5 @@ pnpm-debug.log*
 # AI
 .claude
 CLAUDE.md
+TODO.md
 

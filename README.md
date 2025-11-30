@@ -8,7 +8,11 @@ narration. Whether you're reviewing notes on the go, creating audiobooks from
 your writing, or bringing multi-character stories to life, Narrator makes it
 effortless.
 
-![Narrate Note](img/narrator-note.png)
+## 🎬 Demo
+
+[![Watch the demo](https://img.youtube.com/vi/8ASCZV1xGXs/0.jpg)](https://www.youtube.com/watch?v=8ASCZV1xGXs)
+
+_Click the image above to watch the demo video_
 
 ## ✨ Features
 
@@ -123,9 +127,9 @@ Bring scripts to life with different voices for each character.
    ```yaml
    ---
    narrator_script: true
-   NARRATOR VOICE: "alloy/echo"
-   JOHN VOICE: "onyx/nova"
-   SARAH VOICE: "shimmer/fable"
+   NARRATOR VOICE: "Compassion"
+   JOHN VOICE: "Drowsy"
+   SARAH VOICE: "Slumbervoice"
    ---
    ```
 3. Right-click the script file
@@ -139,9 +143,9 @@ Scripts use a simple, readable format:
 ```markdown
 ---
 narrator_script: true
-NARRATOR VOICE: "alloy/echo"
-ALICE VOICE: "nova/shimmer"
-BOB VOICE: "onyx/fable"
+NARRATOR VOICE: "Compassion"
+ALICE VOICE: "Drowsy"
+BOB VOICE: "Slumbervoice"
 ---
 
 [NARRATOR] It was a dark and stormy night.

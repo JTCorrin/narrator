@@ -33,7 +33,15 @@ export class NarratorSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 					.inputEl.setAttribute("type", "password")
-			);
+			)
+			.addButton((button) => {
+				button
+					.setIcon("external-link")
+					.setTooltip("Get API key")
+					.onClick(() => {
+						window.open("https://narrator-api-production-81e4.up.railway.app", "_blank");
+					});
+			});
 
 		// Voice settings section
 		new Setting(containerEl).setName("Voice").setHeading();
@@ -98,19 +106,19 @@ export class NarratorSettingTab extends PluginSettingTab {
 			);
 		}
 
-		new Setting(containerEl)
-			.setName("Speed")
-			.setDesc("Narration speed (0.25 to 4.0)")
-			.addSlider((slider) =>
-				slider
-					.setLimits(0.25, 4.0, 0.25)
-					.setValue(this.plugin.settings.speed)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						this.plugin.settings.speed = value;
-						await this.plugin.saveSettings();
-					})
-			);
+		// new Setting(containerEl)
+		// 	.setName("Speed")
+		// 	.setDesc("Narration speed (0.25 to 4.0)")
+		// 	.addSlider((slider) =>
+		// 		slider
+		// 			.setLimits(0.25, 4.0, 0.25)
+		// 			.setValue(this.plugin.settings.speed)
+		// 			.setDynamicTooltip()
+		// 			.onChange(async (value) => {
+		// 				this.plugin.settings.speed = value;
+		// 				await this.plugin.saveSettings();
+		// 			})
+		// 	);
 
 		new Setting(containerEl)
 			.setName("Audio output folder")
