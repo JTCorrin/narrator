@@ -29,17 +29,18 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          fetch-depth: 0
+          version: 9.15.9
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: "22"
-
-      - name: Enable pnpm
-        run: corepack enable && corepack prepare pnpm@8.15.0 --activate
+          node-version: "24"
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -57,6 +58,7 @@ jobs:
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "node=$(node -v) pnpm=$(pnpm -v)"
           echo "Releasing Narrator $VERSION"
 
       - name: Sync manifest, package.json, and versions.json
@@ -83,7 +85,7 @@ jobs:
           test -f styles.css
           test -f versions.json
           python3 - <<'PY'
-          import json, os, pathlib, sys
+          import json, os, pathlib
           version = os.environ["VERSION"]
           prod = os.environ["PROD_API"]
           manifest = json.loads(pathlib.Path("manifest.json").read_text())
