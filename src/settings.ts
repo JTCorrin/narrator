@@ -4,197 +4,125 @@ import type { AIModel } from "./api";
 import { AudioPlayerSettingsControl } from "./components/AudioPlayerSettingsControl";
 import { NARRATOR_API_ORIGIN } from "./config";
 
+// Structurally compatible with Obsidian 1.13's render definitions. The same
+// callbacks also render the fallback tab without invoking newer host APIs.
+interface NarratorSettingDefinition {
+	name: string;
+	desc: string;
+	render: (setting: Setting) => void | (() => void);
+}
+
 export class NarratorSettingTab extends PluginSettingTab {
 	plugin: NarratorPlugin;
 	voicePreviewPlayer: AudioPlayerSettingsControl | null = null;
-	currentSelectedVoice: string;
+	private cleanups: (() => void)[] = [];
 
 	constructor(app: App, plugin: NarratorPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
-		this.currentSelectedVoice = plugin.settings.voice;
 	}
 
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
-
-		// API configuration section
-		new Setting(containerEl).setName("API configuration").setHeading();
-
-		new Setting(containerEl)
-			.setName("Narrator API key")
-			.setDesc("Enter your API key for the narration service (if required)")
-			.addText((text) =>
-				text
-					.setPlaceholder("Enter your API key")
-					.setValue(this.plugin.settings.apiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.apiKey = value;
-						await this.plugin.saveSettings();
-					})
-					.inputEl.setAttribute("type", "password")
-			)
-			.addButton((button) => {
-				button
-					.setIcon("external-link")
-					.setTooltip("Get API key")
-					.onClick(() => {
-						window.open(NARRATOR_API_ORIGIN, "_blank");
-					});
-			});
-
-		// Voice settings section
-		new Setting(containerEl).setName("Voice").setHeading();
-
-		// Get voices from plugin (pre-loaded in background)
+	getSettingDefinitions(): NarratorSettingDefinition[] {
 		const voices = this.plugin.cachedVoices;
-		const voicesAvailable = voices.length > 0;
-
-		new Setting(containerEl)
-			.setName("Voice")
-			.setDesc(
-				voicesAvailable
-					? `Select the default voice for narration (${voices.length} available)`
-					: "Loading voices..."
-			)
-			.addDropdown((dropdown) => {
-				if (voicesAvailable) {
-					// Build options from loaded voices
-					const options: Record<string, string> = {};
-					voices.forEach((voice) => {
-						// Capitalize first letter for display
-						const displayName =
-							voice.charAt(0).toUpperCase() + voice.slice(1);
-						options[voice] = displayName;
-					});
-
-					dropdown
-						.addOptions(options)
-						.setValue(this.plugin.settings.voice)
-						.onChange(async (value) => {
-							this.plugin.settings.voice = value;
-							this.currentSelectedVoice = value;
+		const models = this.plugin.cachedModels;
+		return [
+			{
+				name: "Narrator API key",
+				desc: "Enter your API key for the narration service (if required)",
+				render: setting => {
+					setting.addText(text => {
+						text.setPlaceholder("Enter your API key").setValue(this.plugin.settings.apiKey)
+							.onChange(async value => {
+							this.plugin.settings.apiKey = value;
 							await this.plugin.saveSettings();
 						});
-				} else {
-					// Show loading state
-					dropdown.addOption("loading", "Loading...").setDisabled(true);
-				}
-			})
-			.addButton((button) => {
-				if (voicesAvailable) {
-					button
-						.setButtonText("Preview voice")
-						.onClick(() => {
-							if (this.voicePreviewPlayer) {
-								void this.voicePreviewPlayer.previewVoice(
-									this.currentSelectedVoice
-								);
-							}
+						text.inputEl.type = "password";
+					}).addButton(button => button.setIcon("external-link").setTooltip("Get API key")
+						.onClick(() => { window.open(NARRATOR_API_ORIGIN, "_blank"); }));
+				},
+			},
+			{
+				name: "Voice",
+				desc: voices.length ? `Select the default voice for narration (${voices.length} available)` : "No voices loaded. Check your connection and reload the plugin.",
+				render: setting => {
+					setting.addDropdown(dropdown => {
+						if (!voices.length) { dropdown.addOption("", "No voices available").setDisabled(true); return; }
+						for (const voice of voices) dropdown.addOption(voice, voice.charAt(0).toUpperCase() + voice.slice(1));
+						dropdown.setValue(this.plugin.settings.voice).onChange(async value => {
+							this.plugin.settings.voice = value;
+							await this.plugin.saveSettings();
 						});
-				} else {
-					button.setButtonText("Preview voice").setDisabled(true);
-				}
-			});
-
-		// Voice Preview Player
-		if (voicesAvailable) {
-			const playerContainer = containerEl.createEl("div");
-			this.voicePreviewPlayer = new AudioPlayerSettingsControl(
-				playerContainer,
-				this.plugin
-			);
-		}
-
-		// new Setting(containerEl)
-		// 	.setName("Speed")
-		// 	.setDesc("Narration speed (0.25 to 4.0)")
-		// 	.addSlider((slider) =>
-		// 		slider
-		// 			.setLimits(0.25, 4.0, 0.25)
-		// 			.setValue(this.plugin.settings.speed)
-		// 			.setDynamicTooltip()
-		// 			.onChange(async (value) => {
-		// 				this.plugin.settings.speed = value;
-		// 				await this.plugin.saveSettings();
-		// 			})
-		// 	);
-
-		new Setting(containerEl)
-			.setName("Audio output folder")
-			.setDesc("Folder path where audio files will be saved")
-			.addText((text) =>
-				text
-					.setPlaceholder("Narration-audio")
-					.setValue(this.plugin.settings.audioOutputFolder)
-					.onChange(async (value) => {
-						this.plugin.settings.audioOutputFolder = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		// AI configuration section
-		new Setting(containerEl).setName("AI configuration").setHeading();
-
-		new Setting(containerEl)
-			.setName("OpenRouter API Key")
-			.setDesc("Enter your OpenRouter API Key for AI model access")
-			.addText((text) =>
-				text
-					.setPlaceholder("Enter your OpenRouter API Key")
-					.setValue(this.plugin.settings.openRouterApiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.openRouterApiKey = value;
-						await this.plugin.saveSettings();
-					})
-					.inputEl.setAttribute("type", "password")
-			);
-
-		// Get models from plugin (pre-loaded in background)
-		const models = this.plugin.cachedModels;
-		const modelsAvailable = models.length > 0;
-
-		// Create the AI model dropdown setting
-		new Setting(containerEl)
-			.setName("AI model")
-			.setDesc(
-				modelsAvailable
-					? `Select the AI model for script generation (${models.length} available)`
-					: "Loading models..."
-			)
-			.addDropdown((dropdown) => {
-				if (modelsAvailable) {
-					// Build options from loaded models
-					const options: Record<string, string> = {};
-					models.forEach((model) => {
-						options[model.id] = model.name;
 					});
-
-					dropdown
-						.addOptions(options)
-						.setValue(this.plugin.settings.aiModel)
-						.onChange(async (value) => {
+					if (!voices.length) return;
+					const container = setting.descEl.createDiv({ cls: "narrator-voice-preview" });
+					const player = new AudioPlayerSettingsControl(container, this.plugin);
+					this.voicePreviewPlayer = player;
+					setting.addButton(button => button.setButtonText("Preview voice").onClick(() => {
+						void player.previewVoice(this.plugin.settings.voice);
+					}));
+					return () => {
+						player.destroy();
+						if (this.voicePreviewPlayer === player) this.voicePreviewPlayer = null;
+					};
+				},
+			},
+			{
+				name: "Audio output folder",
+				desc: "Folder path where audio files will be saved",
+				render: setting => {
+					setting.addText(text => text.setPlaceholder("Narration-audio").setValue(this.plugin.settings.audioOutputFolder)
+						.onChange(async value => { this.plugin.settings.audioOutputFolder = value; await this.plugin.saveSettings(); }));
+				},
+			},
+			{
+				name: "OpenRouter API key",
+				desc: "Enter your OpenRouter API key for AI model access",
+				render: setting => {
+					setting.addText(text => {
+						text.setPlaceholder("Enter your API key").setValue(this.plugin.settings.openRouterApiKey)
+							.onChange(async value => {
+							this.plugin.settings.openRouterApiKey = value;
+							await this.plugin.saveSettings();
+						});
+						text.inputEl.type = "password";
+					});
+				},
+			},
+			{
+				name: "AI model",
+				desc: models.length ? `Select the AI model for script generation (${models.length} available)` : "No models loaded. Check your connection and reload the plugin.",
+				render: setting => {
+					const details = setting.descEl.createDiv({ cls: "narrator-model-details" });
+					setting.addDropdown(dropdown => {
+						if (!models.length) { dropdown.addOption("", "No models available").setDisabled(true); return; }
+						for (const model of models) dropdown.addOption(model.id, model.name);
+						dropdown.setValue(this.plugin.settings.aiModel).onChange(async value => {
 							this.plugin.settings.aiModel = value;
 							await this.plugin.saveSettings();
-							// Update model details display
-							this.updateModelDetailsDisplay(modelDetailsContainer, models, value);
+							this.updateModelDetailsDisplay(details, models, value);
 						});
-				} else {
-					// Show loading state
-					dropdown.addOption("loading", "Loading...").setDisabled(true);
-				}
-			});
+					});
+					this.updateModelDetailsDisplay(details, models, this.plugin.settings.aiModel);
+				},
+			},
+		];
+	}
 
-		// Create model details container for dynamic updates (after the dropdown)
-		const modelDetailsContainer = containerEl.createEl("div", {
-			cls: "narrator-model-details",
-		});
-
-		// Initialize details display for currently selected model if available
-		if (modelsAvailable && this.plugin.settings.aiModel) {
-			this.updateModelDetailsDisplay(modelDetailsContainer, models, this.plugin.settings.aiModel);
+	/** Older Obsidian versions call display; 1.13+ uses the definitions above. */
+	display(): void {
+		this.hide();
+		this.containerEl.empty();
+		for (const definition of this.getSettingDefinitions()) {
+			const setting = new Setting(this.containerEl).setName(definition.name).setDesc(definition.desc);
+			const cleanup = definition.render(setting);
+			if (cleanup) this.cleanups.push(cleanup);
 		}
+	}
+
+	hide(): void {
+		for (const cleanup of this.cleanups.splice(0)) cleanup();
+		this.voicePreviewPlayer?.destroy();
+		this.voicePreviewPlayer = null;
 	}
 
 	/**
@@ -213,31 +141,31 @@ export class NarratorSettingTab extends PluginSettingTab {
 		if (!selectedModel) return;
 
 		// Create details container
-		const detailsEl = container.createEl("div", {
+		const detailsEl = container.createDiv({
 			cls: "setting-item-description narrator-model-details-info",
 		});
 
 		// Add context length
 		if (selectedModel.context_length) {
-			detailsEl.createEl("div", {
+			detailsEl.createDiv({
 				text: `Context Length: ${selectedModel.context_length.toLocaleString()} tokens`,
 			});
 		}
 
 		// Add pricing information
 		if (selectedModel.pricing) {
-			const pricingEl = detailsEl.createEl("div");
+			const pricingEl = detailsEl.createDiv();
 			const promptCost = parseFloat(selectedModel.pricing.prompt);
 			const completionCost = parseFloat(selectedModel.pricing.completion);
 
-			pricingEl.createEl("span", {
+			pricingEl.createSpan({
 				text: `Pricing: $${promptCost.toFixed(6)}/1K prompt tokens, $${completionCost.toFixed(6)}/1K completion tokens`,
 			});
 		}
 
 		// Add description if available
 		if (selectedModel.description) {
-			detailsEl.createEl("div", {
+			detailsEl.createDiv({
 				text: selectedModel.description,
 				cls: "mod-muted",
 			});

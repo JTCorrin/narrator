@@ -78,11 +78,13 @@ describe("e2e streaming flow", () => {
 			baseUrl: "http://localhost:8000/api/v1",
 		});
 		vi.useFakeTimers();
+		vi.stubGlobal("window", globalThis);
 	});
 
 	afterEach(() => {
 		globalThis.WebSocket = OriginalWebSocket;
 		vi.useRealTimers();
+		vi.unstubAllGlobals();
 	});
 
 	it("completes narrateTextStreaming with audio then finalComplete", async () => {
@@ -148,6 +150,24 @@ describe("e2e streaming flow", () => {
 		await vi.advanceTimersByTimeAsync(200);
 		expect(onError).toHaveBeenCalledOnce();
 		expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "Demo request validation failed" }));
+		expect(onComplete).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		null,
+		{ type: "audio", data: 123 },
+		{ type: "audio", data: "AAAAAA==", sample_rate: "24000" },
+		{ type: "audio", data: "AAAAAA==", sample_rate: -1 },
+		{ type: "audio", data: "invalid base64!" },
+	])("rejects malformed stream data: %j", async message => {
+		const { narrateTextStreaming } = await import("../../src/api/endpoints/narration");
+		const onError = vi.fn();
+		const onComplete = vi.fn();
+		narrateTextStreaming("hello", { voice: "Wonderstruck", onError, onComplete });
+		FakeWebSocket.instances[0].emit(message);
+		await vi.advanceTimersByTimeAsync(200);
+		expect(onError).toHaveBeenCalledOnce();
+		expect(onError).toHaveBeenCalledWith(expect.any(Error));
 		expect(onComplete).not.toHaveBeenCalled();
 	});
 

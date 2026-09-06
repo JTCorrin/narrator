@@ -110,11 +110,11 @@ function streamNarration(
 	const player = new StreamingAudioPlayer();
 	let settled = false;
 	let receivedComplete = false;
-	let timer: ReturnType<typeof setTimeout> | undefined;
+	let timer: number | undefined;
 	let queue = Promise.resolve();
 
 	const cleanup = () => {
-		clearTimeout(timer);
+		window.clearTimeout(timer);
 		ws.close();
 		return player.destroy();
 	};
@@ -128,13 +128,13 @@ function streamNarration(
 		if (settled) return;
 		// AudioContext time stops while paused; a wall-clock deadline would truncate audio.
 		if (player.getRemainingPlaybackTime() > 0) {
-			timer = setTimeout(finishPlayback, 100);
+			timer = window.setTimeout(finishPlayback, 100);
 			return;
 		}
 		try {
 			const wav = encodeWAV(player.getCollectedAudio(), player.getSampleRate());
 			settled = true;
-			void cleanup().then(() => options.onComplete?.(wav)).catch(error => options.onError?.(error));
+			void cleanup().then(() => options.onComplete?.(wav)).catch((error: unknown) => options.onError?.(error instanceof Error ? error : new Error(String(error))));
 		} catch (error) {
 			fail(error);
 		}
@@ -144,15 +144,26 @@ function streamNarration(
 	ws.onmessage = (event) => {
 		queue = queue.then(async () => {
 			if (settled || receivedComplete) return;
-			const msg = JSON.parse(event.data);
-			if (msg.type === "error" || msg.status === "error") {
-				throw new Error(msg.message || msg.error || "Streaming narration failed");
+			const data: unknown = event.data;
+			if (typeof data !== "string") throw new Error("Expected a text narration message");
+			const msg: unknown = JSON.parse(data);
+			if (typeof msg !== "object" || msg === null || Array.isArray(msg)) {
+				throw new Error("Invalid narration message");
 			}
-			if (msg.type === "audio") {
-				await player.addPCMChunk(decodeBase64ToFloat32Array(msg.data), msg.sample_rate || 24000);
-			} else if (msg.type === "finalComplete") {
+			const message = msg as Record<string, unknown>;
+			if (message.type === "error" || message.status === "error") {
+				throw new Error(typeof message.message === "string" ? message.message : typeof message.error === "string" ? message.error : "Streaming narration failed");
+			}
+			if (message.type === "audio") {
+				if (typeof message.data !== "string") throw new Error("Invalid audio payload");
+				const sampleRate = message.sample_rate ?? 24000;
+				if (typeof sampleRate !== "number" || !Number.isFinite(sampleRate) || sampleRate < 8000 || sampleRate > 192000) {
+					throw new Error("Invalid audio sample rate");
+				}
+				await player.addPCMChunk(decodeBase64ToFloat32Array(message.data), sampleRate);
+			} else if (message.type === "finalComplete") {
 				receivedComplete = true;
-				timer = setTimeout(finishPlayback, 100);
+				timer = window.setTimeout(finishPlayback, 100);
 			}
 		}).catch(fail);
 	};

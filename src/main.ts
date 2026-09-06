@@ -1,6 +1,6 @@
 import { Notice, Plugin, TFile, Editor, MarkdownView, Menu } from "obsidian";
 import { NarratorSettingTab } from "./settings";
-import { NarratorSettings, DEFAULT_SETTINGS } from "./types";
+import { NarratorSettings, parseSettings } from "./types";
 import { initApiClient, apiClient, NarratorApiError, AIModel } from "./api";
 import { AudioPlayerStatusBar } from "./components/AudioPlayerStatusBar";
 import { LoadingIndicator } from "./components/LoadingIndicator";
@@ -8,7 +8,7 @@ import { isScriptFile, extractCharacterVoices, getCleanScriptContent } from "./u
 import { NARRATOR_API_BASE_URL } from "./config";
 
 export default class NarratorPlugin extends Plugin {
-	settings!: NarratorSettings;
+	declare settings: NarratorSettings;
 	cachedVoices: string[] = [];
 	cachedModels: AIModel[] = [];
 	statusBarPlayer: AudioPlayerStatusBar | null = null;
@@ -451,7 +451,7 @@ export default class NarratorPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = parseSettings(await this.loadData());
 
 		// Update API client when settings are loaded
 		initApiClient({

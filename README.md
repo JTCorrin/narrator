@@ -303,3 +303,17 @@ Built with:
 ---
 
 If something breaks or a voice sounds wrong, [open an issue](https://github.com/JTCorrin/narrator/issues) with the note type you were narrating and the steps that led to the problem.
+
+### Submission checks and compatibility
+
+Narrator requires Obsidian **1.4.0 or later**. On Obsidian 1.13+, its settings
+participate in settings search; earlier supported versions render the same controls
+through a fallback tab. Keep `manifest.json` and the current `versions.json` entry
+aligned when changing the minimum version.
+
+`pnpm lint` runs the official Obsidian recommended rules with TypeScript type
+checking and treats warnings as failures. CI and release builds already invoke
+this command. Run `pnpm test:ci` and `pnpm build` before submitting updated assets.
+The linter currently uses ESLint 9 to match its dependency support; Obsidian 1.13
+SDK types are needed for the searchable settings API despite the linter package's
+older Obsidian peer declaration.

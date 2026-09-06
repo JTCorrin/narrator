@@ -12,13 +12,13 @@ export class LoadingIndicator {
 		this.container.addClass("narrator-loading-container");
 
 		// Create the spinner element with animated circle
-		this.spinner = this.container.createEl("div", {
+		this.spinner = this.container.createDiv({
 			cls: "narrator-loading-spinner",
 			attr: { "aria-label": "Loading" },
 		});
 
 		// Add inner circle for animation
-		this.spinner.createEl("div", {
+		this.spinner.createDiv({
 			cls: "narrator-loading-spinner-circle",
 		});
 

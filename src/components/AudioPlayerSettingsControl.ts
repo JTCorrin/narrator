@@ -13,6 +13,7 @@ export class AudioPlayerSettingsControl {
 	private container: HTMLElement;
 	private plugin: NarratorPlugin;
 	private isPlaying = false;
+	private previewRequest = 0;
 
 	private playPauseButton: HTMLElement;
 	private stopButton: HTMLElement;
@@ -87,15 +88,15 @@ export class AudioPlayerSettingsControl {
 	 * Create progress bar
 	 */
 	private createProgressBar(): HTMLElement {
-		const progressContainer = this.container.createEl("div", {
+		const progressContainer = this.container.createDiv({
 			cls: "narrator-player-progress-container",
 		});
 
-		const progressBar = progressContainer.createEl("div", {
+		const progressBar = progressContainer.createDiv({
 			cls: "narrator-player-progress-bar",
 		});
 
-		progressBar.createEl("div", {
+		progressBar.createDiv({
 			cls: "narrator-player-progress-fill",
 		});
 
@@ -111,7 +112,7 @@ export class AudioPlayerSettingsControl {
 	 * Create time display (current time / duration)
 	 */
 	private createTimeDisplay(): HTMLElement {
-		const timeDisplay = this.container.createEl("span", {
+		const timeDisplay = this.container.createSpan({
 			cls: "narrator-player-time",
 			text: "0:00 / 0:00",
 		});
@@ -209,6 +210,7 @@ export class AudioPlayerSettingsControl {
 	 * @param voiceName Voice to preview
 	 */
 	public async previewVoice(voiceName: string): Promise<void> {
+		const request = ++this.previewRequest;
 		try {
 			// Stop any currently playing audio
 			this.stop();
@@ -231,6 +233,9 @@ export class AudioPlayerSettingsControl {
 
 			// Hide loading
 			this.plugin.loadingIndicator?.hide();
+
+			// The settings row may have closed or another preview may have started.
+			if (request !== this.previewRequest) return;
 
 			// Check if audioData exists
 			if (!response.audioData) {
@@ -270,6 +275,8 @@ export class AudioPlayerSettingsControl {
 			// Hide loading on error
 			this.plugin.loadingIndicator?.hide();
 
+			if (request !== this.previewRequest) return;
+
 			console.error("Error previewing voice:", error);
 			const errorMessage = error instanceof Error ? error.message : "Unknown error";
 			new Notice(`Preview failed: ${errorMessage}`);
@@ -283,6 +290,7 @@ export class AudioPlayerSettingsControl {
 	 * Clean up when settings are closed
 	 */
 	public destroy(): void {
+		this.previewRequest++;
 		// Stop and clean up audio
 		if (this.currentAudio) {
 			this.currentAudio.pause();

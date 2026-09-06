@@ -111,7 +111,7 @@ export async function apiRequest<T = unknown>(
 	// Build requestUrl params
 	const requestParams: RequestUrlParam = {
 		url,
-		method: (options.method as string) || "GET",
+		method: options.method || "GET",
 		headers,
 		body: options.body as string | undefined,
 		throw: false, // Handle errors manually for better error messages
