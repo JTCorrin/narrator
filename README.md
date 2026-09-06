@@ -65,9 +65,19 @@ _Click the image above to watch the demo video_
 2. **OpenRouter API Key** (optional): For AI script generation with model
    selection
 
-### From Obsidian Community Plugins
+### Install from Community Plugins
 
-_Coming soon! This plugin is currently in development._
+1. Open **Settings → Community plugins**
+2. Turn off **Restricted mode** if it is enabled
+3. Open **Browse**, search for **Narrator**, then **Install** and **Enable**
+4. Open **Settings → Narrator** and paste your Narrator API key (use the link button next to the field to open the key page)
+
+### Manual install
+
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest GitHub release](https://github.com/JTCorrin/narrator/releases/latest)
+2. Create a folder named `narrator` inside your vault's `.obsidian/plugins/` directory
+3. Copy the three files into that folder
+4. Enable **Narrator** under **Settings → Community plugins**
 
 ## 🚀 Quick Start
 
@@ -129,7 +139,7 @@ Bring scripts to life with different voices for each character.
    narrator_script: true
    NARRATOR VOICE: "Compassion"
    JOHN VOICE: "Drowsy"
-   SARAH VOICE: "Slumbervoice"
+   SARAH VOICE: "Wonderstruck"
    ---
    ```
 3. Right-click the script file
@@ -145,7 +155,7 @@ Scripts use a simple, readable format:
 narrator_script: true
 NARRATOR VOICE: "Compassion"
 ALICE VOICE: "Drowsy"
-BOB VOICE: "Slumbervoice"
+BOB VOICE: "Wonderstruck"
 ---
 
 [NARRATOR] It was a dark and stormy night.
@@ -160,9 +170,9 @@ BOB VOICE: "Slumbervoice"
 **Key elements:**
 
 - **Frontmatter**: YAML with `narrator_script: true` and voice assignments
-- **Character tags**: `[CHARACTER NAME]` before their dialogue
-- **Voice format**: `"voice/model"` (see available voices in settings)
-- **Fallback**: Unmapped characters use your default voice
+- **Character tags**: square-bracket labels such as `NARRATOR` or `ALICE` before each line of dialogue
+- **Voice names**: use a voice listed in Settings → Narrator (for example Compassion, Drowsy, Wonderstruck, Chronicler)
+- **Fallback**: unmapped characters use your default voice
 
 ![Narrator Script](img/narrator-script.png)
 
@@ -184,13 +194,13 @@ Access settings via **Settings → Narrator**
 **Narrator API Key**
 
 - Required for all text-to-speech operations
-- Get your key from your backend service provider
+- In Settings → Narrator, click the link button next to the key field to open the Narrator API site and create or copy a key
 
 **OpenRouter API Key** (optional)
 
 - Required for AI script generation
 - Enables model selection with pricing information
-- [Get your key](https://openrouter.ai/)
+- Create a key at [openrouter.ai](https://openrouter.ai/)
 
 ### Voice Settings
 
@@ -234,7 +244,7 @@ Popular models:
 
 ### "Script contains no dialogue lines"
 
-- Ensure script uses proper character tags: `[CHARACTER]`
+- Ensure each dialogue line starts with a character label in square brackets (for example `NARRATOR` or `ALICE`)
 - Check that frontmatter includes `narrator_script: true`
 - Verify characters have non-empty dialogue
 
@@ -292,5 +302,4 @@ Built with:
 
 ---
 
-**Note**: This plugin is currently in active development. Features and API may
-change. Please report any issues you encounter!
+If something breaks or a voice sounds wrong, [open an issue](https://github.com/JTCorrin/narrator/issues) with the note type you were narrating and the steps that led to the problem.
