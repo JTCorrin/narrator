@@ -3,11 +3,24 @@
 export const STT_SAMPLE_RATE = 24000;
 export const STT_FRAME_SAMPLES = 1920;
 
+const PCM_CAPTURE_WORKLET = `
+class PcmCaptureProcessor extends AudioWorkletProcessor {
+	process(inputs) {
+		const channel = inputs[0]?.[0];
+		if (channel && channel.length > 0) {
+			this.port.postMessage(channel);
+		}
+		return true;
+	}
+}
+registerProcessor("pcm-capture", PcmCaptureProcessor);
+`;
+
 export function encodePcmBase64(pcm: Float32Array): string {
 	const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
 	let binary = "";
 	for (let i = 0; i < bytes.length; i++) {
-		binary += String.fromCharCode(bytes[i]!);
+		binary += String.fromCharCode(bytes[i]);
 	}
 	return btoa(binary);
 }
@@ -29,7 +42,7 @@ export function resampleLinear(
 		const i0 = Math.min(Math.floor(srcIndex), input.length - 1);
 		const i1 = Math.min(i0 + 1, input.length - 1);
 		const t = srcIndex - i0;
-		out[i] = input[i0]! * (1 - t) + input[i1]! * t;
+		out[i] = input[i0] * (1 - t) + input[i1] * t;
 	}
 	return out;
 }
@@ -39,7 +52,8 @@ export function isMicCaptureSupported(): boolean {
 		typeof navigator !== "undefined" &&
 		!!navigator.mediaDevices &&
 		typeof navigator.mediaDevices.getUserMedia === "function" &&
-		typeof AudioContext !== "undefined"
+		typeof AudioContext !== "undefined" &&
+		typeof AudioWorkletNode !== "undefined"
 	);
 }
 
@@ -70,17 +84,26 @@ export async function startMicCapture(
 
 	const ctx = new AudioContext();
 	const source = ctx.createMediaStreamSource(stream);
-	const processor = ctx.createScriptProcessor(4096, 1, 1);
 	const mute = ctx.createGain();
 	mute.gain.value = 0;
 
+	const workletUrl = URL.createObjectURL(
+		new Blob([PCM_CAPTURE_WORKLET], { type: "application/javascript" })
+	);
+	try {
+		await ctx.audioWorklet.addModule(workletUrl);
+	} finally {
+		URL.revokeObjectURL(workletUrl);
+	}
+
+	const processor = new AudioWorkletNode(ctx, "pcm-capture");
 	const pending: number[] = [];
 
-	processor.onaudioprocess = (event) => {
-		const input = event.inputBuffer.getChannelData(0);
+	processor.port.onmessage = (event: MessageEvent<Float32Array>) => {
+		const input = event.data;
 		const resampled = resampleLinear(input, ctx.sampleRate, STT_SAMPLE_RATE);
 		for (let i = 0; i < resampled.length; i++) {
-			pending.push(resampled[i]!);
+			pending.push(resampled[i]);
 		}
 		while (pending.length >= STT_FRAME_SAMPLES) {
 			const frame = new Float32Array(STT_FRAME_SAMPLES);
@@ -101,6 +124,7 @@ export async function startMicCapture(
 			if (stopped) return;
 			stopped = true;
 			try {
+				processor.port.onmessage = null;
 				processor.disconnect();
 				source.disconnect();
 				mute.disconnect();

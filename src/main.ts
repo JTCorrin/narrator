@@ -520,12 +520,12 @@ export default class NarratorPlugin extends Plugin {
 
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (!view?.editor || !view.file) {
-			new Notice("Open a markdown note to record transcription.");
+			new Notice("Open a Markdown note to record transcription.");
 			return;
 		}
 
 		if (!this.settings.apiKey?.trim()) {
-			new Notice("Set your Narrator API key in settings before recording.");
+			new Notice("Set your narrator API key in settings before recording.");
 			return;
 		}
 
