@@ -23,6 +23,32 @@
 	}
 }
 
+/* Recording status bar */
+.narrator-recording-container {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-right: 8px;
+}
+
+.narrator-recording-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--color-red, #e74c3c);
+	animation: narrator-recording-pulse 1.2s ease-in-out infinite;
+}
+
+.narrator-recording-label {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+@keyframes narrator-recording-pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.35; }
+}
+
 /* Audio Player Status Bar Styles */
 .narrator-player-container {
 	display: flex;

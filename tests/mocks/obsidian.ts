@@ -13,6 +13,14 @@ export class Notice {
 }
 export class TFile {}
 export class App {}
+export class MarkdownView {}
+export class Menu {}
+export class Editor {}
+
+export const Platform = {
+	isDesktop: true,
+	isMobile: false,
+};
 
 export default {
 	requestUrl,
@@ -22,4 +30,8 @@ export default {
 	Notice,
 	TFile,
 	App,
+	MarkdownView,
+	Menu,
+	Editor,
+	Platform,
 };

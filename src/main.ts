@@ -1,10 +1,14 @@
-import { Notice, Plugin, TFile, Editor, MarkdownView, Menu } from "obsidian";
+import { Notice, Plugin, TFile, Editor, MarkdownView, Menu, Platform } from "obsidian";
 import { NarratorSettingTab } from "./settings";
 import { NarratorSettings, parseSettings } from "./types";
 import { initApiClient, apiClient, NarratorApiError, AIModel } from "./api";
+import type { TranscriptionStreamHandle } from "./api/endpoints/transcription";
 import { AudioPlayerStatusBar } from "./components/AudioPlayerStatusBar";
 import { LoadingIndicator } from "./components/LoadingIndicator";
+import { RecordingStatusBar } from "./components/RecordingStatusBar";
 import { isScriptFile, extractCharacterVoices, getCleanScriptContent } from "./utils/scriptParser";
+import { isMicCaptureSupported, startMicCapture, type MicCaptureHandle } from "./utils/micCapture";
+import { LiveTranscriptInsert } from "./utils/sttInsert";
 import { NARRATOR_API_BASE_URL } from "./config";
 
 export default class NarratorPlugin extends Plugin {
@@ -13,6 +17,13 @@ export default class NarratorPlugin extends Plugin {
 	cachedModels: AIModel[] = [];
 	statusBarPlayer: AudioPlayerStatusBar | null = null;
 	loadingIndicator: LoadingIndicator | null = null;
+	recordingStatusBar: RecordingStatusBar | null = null;
+
+	private micCapture: MicCaptureHandle | null = null;
+	private sttStream: TranscriptionStreamHandle | null = null;
+	private liveInsert: LiveTranscriptInsert | null = null;
+	private recordingFilePath: string | null = null;
+	private recordingActive = false;
 
 	async onload() {
 		console.debug("Loading Narrator plugin");
@@ -23,6 +34,7 @@ export default class NarratorPlugin extends Plugin {
 		// Initialize status bar components
 		this.initializeStatusBar();
 		this.initializeLoadingIndicator();
+		this.initializeRecordingStatusBar();
 
 		// Initialize API client with settings and loading callbacks
 		initApiClient({
@@ -50,12 +62,18 @@ export default class NarratorPlugin extends Plugin {
 		// Register context menu events
 		this.registerWorkspaceEvents();
 
+		// Microphone ribbon first (toggle record)
+		this.addRibbonIcon("mic", "Record transcription", () => {
+			void this.toggleTranscriptionRecording();
+		});
+
 		// Add commands to command palette
 		this.addCommands();
 	}
 
 	onunload() {
 		console.debug("Unloading Narrator plugin");
+		this.cancelTranscriptionRecording();
 
 		// Clean up status bar components
 		if (this.statusBarPlayer) {
@@ -63,6 +81,9 @@ export default class NarratorPlugin extends Plugin {
 		}
 		if (this.loadingIndicator) {
 			this.loadingIndicator.destroy();
+		}
+		if (this.recordingStatusBar) {
+			this.recordingStatusBar.destroy();
 		}
 	}
 
@@ -108,7 +129,7 @@ export default class NarratorPlugin extends Plugin {
 			})
 		);
 
-		// Editor menu context: "Narrate" selected text
+		// Editor menu context: narrate selection + record transcription
 		this.registerEvent(
 			// @ts-ignore - editor-menu is a valid event type
 			this.app.workspace.on("editor-menu", (menu: Menu, editor: Editor, view: MarkdownView) => {
@@ -124,6 +145,28 @@ export default class NarratorPlugin extends Plugin {
 								void this.narrateText(selectedText, view.file);
 							});
 					});
+				}
+
+				if (this.canUseTranscription()) {
+					menu.addItem((item) => {
+						item
+							.setTitle(this.recordingActive ? "Stop recording" : "Start recording")
+							.setIcon("mic")
+							.onClick(() => {
+								void this.toggleTranscriptionRecording();
+							});
+					});
+				}
+			})
+		);
+
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", () => {
+				if (!this.recordingActive || !this.recordingFilePath) return;
+				const file = this.app.workspace.getActiveFile();
+				if (!file || file.path !== this.recordingFilePath) {
+					new Notice("Recording stopped: note changed");
+					this.cancelTranscriptionRecording();
 				}
 			})
 		);
@@ -141,7 +184,31 @@ export default class NarratorPlugin extends Plugin {
 		console.debug("Loading indicator initialized");
 	}
 
+	private initializeRecordingStatusBar() {
+		const recordingContainer = this.addStatusBarItem();
+		this.recordingStatusBar = new RecordingStatusBar(recordingContainer);
+		console.debug("Recording status bar initialized");
+	}
+
+	private canUseTranscription(): boolean {
+		return Platform.isDesktop && isMicCaptureSupported();
+	}
+
 	private addCommands() {
+		this.addCommand({
+			id: "record-transcription",
+			name: "Record transcription",
+			checkCallback: (checking: boolean) => {
+				if (!this.canUseTranscription()) return false;
+				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (!view?.editor) return false;
+				if (!checking) {
+					void this.toggleTranscriptionRecording();
+				}
+				return true;
+			},
+		});
+
 		// Command palette command for narrating active note (only for non-scripts)
 		this.addCommand({
 			id: "narrate-active-note",
@@ -432,6 +499,99 @@ export default class NarratorPlugin extends Plugin {
 			// Empty array on failure - user will see "Loading..." in settings
 			this.cachedModels = [];
 		}
+	}
+
+	/**
+	 * Toggle live speech-to-text into the active markdown editor.
+	 */
+	private async toggleTranscriptionRecording(): Promise<void> {
+		if (this.recordingActive) {
+			this.stopTranscriptionRecording();
+			return;
+		}
+		await this.startTranscriptionRecording();
+	}
+
+	private async startTranscriptionRecording(): Promise<void> {
+		if (!this.canUseTranscription()) {
+			new Notice("Microphone transcription requires the desktop app.");
+			return;
+		}
+
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!view?.editor || !view.file) {
+			new Notice("Open a markdown note to record transcription.");
+			return;
+		}
+
+		if (!this.settings.apiKey?.trim()) {
+			new Notice("Set your Narrator API key in settings before recording.");
+			return;
+		}
+
+		try {
+			this.liveInsert = new LiveTranscriptInsert(view.editor);
+			this.recordingFilePath = view.file.path;
+			this.recordingActive = true;
+			this.recordingStatusBar?.show(() => this.stopTranscriptionRecording());
+
+			this.sttStream = apiClient.transcription.startTranscriptionStream({
+				onWord: (text) => {
+					this.liveInsert?.appendWord(text);
+				},
+				onFinal: (text) => {
+					new Notice(
+						text.trim()
+							? "Transcription complete"
+							: "Transcription finished (no speech detected)"
+					);
+					this.finishTranscriptionCleanup();
+				},
+				onError: (error) => {
+					this.handleError(error, "Transcription error");
+					this.finishTranscriptionCleanup();
+				},
+			});
+
+			this.micCapture = await startMicCapture((pcm) => {
+				this.sttStream?.sendPcm(pcm);
+			});
+
+			new Notice("Recording… speak into your microphone");
+		} catch (error) {
+			const message =
+				error instanceof Error && /Permission|NotAllowed|Denied/i.test(error.message)
+					? "Microphone permission denied"
+					: "Could not start recording";
+			this.handleError(error, message);
+			this.finishTranscriptionCleanup();
+		}
+	}
+
+	private stopTranscriptionRecording(): void {
+		if (!this.recordingActive) return;
+		this.micCapture?.stop();
+		this.micCapture = null;
+		this.sttStream?.stop();
+		new Notice("Finalizing transcription…");
+	}
+
+	private cancelTranscriptionRecording(): void {
+		this.micCapture?.stop();
+		this.micCapture = null;
+		this.sttStream?.cancel();
+		this.sttStream = null;
+		this.finishTranscriptionCleanup();
+	}
+
+	private finishTranscriptionCleanup(): void {
+		this.micCapture?.stop();
+		this.micCapture = null;
+		this.sttStream = null;
+		this.liveInsert = null;
+		this.recordingFilePath = null;
+		this.recordingActive = false;
+		this.recordingStatusBar?.hide();
 	}
 
 	/**
