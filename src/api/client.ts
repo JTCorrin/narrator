@@ -33,7 +33,7 @@ export function initApiClient(config: ApiClientConfig): void {
  * Hardcoded to localhost for Narrator API server
  */
 export function getApiBaseUrl(): string {
-	return apiConfig?.baseUrl || "http://localhost:8000/api/v1";
+	return apiConfig?.baseUrl || "http://192.168.5.140:8000/api/v1";
 }
 
 /**
@@ -97,7 +97,7 @@ export async function apiRequest<T = unknown>(
 
 	// Add OpenRouter API key if configured
 	if (apiConfig?.openRouterApiKey) {
-		headers["x-openrouter-key"] = apiConfig.openRouterApiKey;
+		headers["x-openrouter-api-key"] = apiConfig.openRouterApiKey;
 	}
 
 	// Merge any additional headers from options

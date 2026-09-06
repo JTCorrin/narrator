@@ -40,9 +40,9 @@ export class AudioPlayerStatusBar {
 	 * Create play/pause toggle button
 	 */
 	private createPlayPauseButton(): HTMLElement {
-		const button = this.container.createEl("span", {
+		const button = this.container.createEl("button", {
 			cls: "narrator-player-button narrator-player-play-pause",
-			attr: { "aria-label": "Play" },
+			attr: { "aria-label": "Play", type: "button" },
 		});
 
 		button.setText("▶️");
@@ -58,9 +58,9 @@ export class AudioPlayerStatusBar {
 	 * Create stop button
 	 */
 	private createStopButton(): HTMLElement {
-		const button = this.container.createEl("span", {
+		const button = this.container.createEl("button", {
 			cls: "narrator-player-button narrator-player-stop",
-			attr: { "aria-label": "Stop" },
+			attr: { "aria-label": "Stop", type: "button" },
 		});
 
 		button.setText("⏹️");
@@ -122,8 +122,8 @@ export class AudioPlayerStatusBar {
 	 * @param cancel Function to cancel streaming
 	 */
 	public attachPlayer(player: IStreamingAudioPlayer, cancel: () => void): void {
-		// Detach any previous player first
-		this.detachPlayer();
+		// Cancel the previous stream before replacing its controls.
+		this.stop();
 
 		// Store player and cancel function
 		this.currentPlayer = player;
@@ -173,7 +173,7 @@ export class AudioPlayerStatusBar {
 	 * Clean up when plugin unloads
 	 */
 	public destroy(): void {
-		this.detachPlayer();
+		this.stop();
 		this.container.empty();
 	}
 }

@@ -2,6 +2,7 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 import type NarratorPlugin from "./main";
 import type { AIModel } from "./api";
 import { AudioPlayerSettingsControl } from "./components/AudioPlayerSettingsControl";
+import { NARRATOR_API_ORIGIN } from "./config";
 
 export class NarratorSettingTab extends PluginSettingTab {
 	plugin: NarratorPlugin;
@@ -39,7 +40,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 					.setIcon("external-link")
 					.setTooltip("Get API key")
 					.onClick(() => {
-						window.open("https://narrator-api-production-81e4.up.railway.app", "_blank");
+						window.open(NARRATOR_API_ORIGIN, "_blank");
 					});
 			});
 

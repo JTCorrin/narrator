@@ -4,6 +4,7 @@
  */
 export class StreamingAudioPlayer {
 	private audioContext: AudioContext;
+	private destroyed = false;
 	private audioChunks: Float32Array[] = [];
 	private sources: AudioBufferSourceNode[] = [];
 	private isPlaying = false;
@@ -25,6 +26,7 @@ export class StreamingAudioPlayer {
 		audioData: Float32Array,
 		sampleRate: number
 	): Promise<void> {
+		if (this.destroyed) return;
 		// Store for final WAV assembly
 		this.audioChunks.push(audioData);
 
@@ -37,6 +39,8 @@ export class StreamingAudioPlayer {
 		if (this.audioContext.state === "suspended" && !this.isPaused) {
 			await this.audioContext.resume();
 		}
+
+		if (this.destroyed) return;
 
 		// Initialize scheduled time on first chunk with small buffer
 		if (!this.isPlaying) {
@@ -65,6 +69,7 @@ export class StreamingAudioPlayer {
 			this.sources.push(source);
 
 			// Schedule at next available time
+			this.scheduledTime = Math.max(this.scheduledTime, this.audioContext.currentTime);
 			source.start(this.scheduledTime);
 
 			// Update scheduled time for next chunk
@@ -75,6 +80,7 @@ export class StreamingAudioPlayer {
 				const index = this.sources.indexOf(source);
 				if (index > -1) {
 					this.sources.splice(index, 1);
+					source.disconnect();
 				}
 			};
 		} catch (error) {
@@ -217,7 +223,10 @@ export class StreamingAudioPlayer {
 	 * Clean up audio context
 	 */
 	public async destroy(): Promise<void> {
+		if (this.destroyed) return;
+		this.destroyed = true;
 		this.stop();
+		this.audioChunks = [];
 		await this.audioContext.close();
 	}
 }

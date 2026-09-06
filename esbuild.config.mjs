@@ -10,6 +10,12 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = process.argv[2] === "production";
 
+const LOCAL_API = "http://192.168.5.140:8000/api/v1";
+
+// Default to the LAN API. Override for production releases:
+//   NARRATOR_API_BASE_URL=https://narrator-api-production-81e4.up.railway.app/api/v1 pnpm run build
+const apiBaseUrl = process.env.NARRATOR_API_BASE_URL || LOCAL_API;
+
 const context = await esbuild.context({
 	banner: {
 		js: banner,
@@ -38,7 +44,12 @@ const context = await esbuild.context({
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
 	outfile: "main.js",
+	define: {
+		"process.env.NARRATOR_API_BASE_URL": JSON.stringify(apiBaseUrl),
+	},
 });
+
+console.log(`Narrator API base URL: ${apiBaseUrl}`);
 
 if (prod) {
 	await context.rebuild();

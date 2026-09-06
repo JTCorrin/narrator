@@ -98,275 +98,96 @@ function decodeBase64ToFloat32Array(base64: string): Float32Array {
 	return new Float32Array(bytes.buffer);
 }
 
-/**
- * Stream narration using WebSocket with real-time playback
- * Returns player instance immediately and handles streaming in background
- * Calls onComplete/onError callbacks when streaming finishes
- */
-export function narrateTextStreaming(
-	text: string,
-	options: NarrationOptions
+/** Shared transport: process chunks in order and settle each stream once. */
+function streamNarration(
+	endpoint: string,
+	payload: string,
+	options: Pick<NarrationOptions, "onComplete" | "onError">
 ): NarrationResponse {
-	const { voice, onComplete, onError } = options;
-	const baseUrl = getApiBaseUrl();
+	const wsUrl = getApiBaseUrl().replace(/\/$/, "").replace(/^http/, "ws");
+	const separator = endpoint.includes("?") ? "&" : "?";
+	const ws = new WebSocket(`${wsUrl}${endpoint}${separator}api_key=${encodeURIComponent(getApiKey())}`);
+	const player = new StreamingAudioPlayer();
+	let settled = false;
+	let receivedComplete = false;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	let queue = Promise.resolve();
 
-	// Convert http(s) to ws(s)
-	const wsUrl = baseUrl.replace(/^http/, "ws");
-	const apiKey = getApiKey();
-	const wsEndpoint = `${wsUrl}/tts/stream?voice=${encodeURIComponent(voice)}&api_key=${encodeURIComponent(apiKey)}`;
-
-	// Create player and WebSocket
-	const audioPlayer = new StreamingAudioPlayer();
-	const ws = new WebSocket(wsEndpoint);
-	let chunkCount = 0;
-
-	// Cancel function to stop streaming
-	const cancel = () => {
-		console.debug("Canceling streaming narration...");
-		audioPlayer.stop();
+	const cleanup = () => {
+		clearTimeout(timer);
 		ws.close();
+		return player.destroy();
 	};
-
-	// Handle WebSocket events
-	ws.onopen = () => {
-		ws.send(text);
-		console.debug("WebSocket opened, sending text for narration");
+	const fail = (error: unknown) => {
+		if (settled) return;
+		settled = true;
+		void cleanup().catch(console.error);
+		options.onError?.(error instanceof Error ? error : new Error(String(error)));
 	};
-
-	ws.onmessage = (event) => {
-		void (async () => {
-			try {
-				// Parse JSON message
-				const msg = JSON.parse(event.data);
-
-				if (msg.type === "audio") {
-					// Decode base64 to Float32Array
-					const audioData = decodeBase64ToFloat32Array(msg.data);
-					const sampleRate = msg.sample_rate || 22050;
-
-					// Play chunk immediately for real-time playback
-					await audioPlayer.addPCMChunk(audioData, sampleRate);
-
-					chunkCount++;
-					console.debug(`Played audio chunk ${chunkCount}`);
-
-				} else if (msg.type === "finalComplete") {
-					// Wait for all scheduled audio to finish playing
-					const remainingTime = audioPlayer.getRemainingPlaybackTime();
-					console.debug(`Waiting ${remainingTime.toFixed(2)}s for playback to complete...`);
-
-					// Add small buffer to ensure last chunk completes
-					const waitTime = (remainingTime + 0.1) * 1000; // Convert to ms and add 100ms buffer
-
-					setTimeout(() => {
-						void (async () => {
-							// Get all collected audio
-							const combinedAudio = audioPlayer.getCollectedAudio();
-							const sampleRate = audioPlayer.getSampleRate();
-
-							// Encode to WAV format
-							const wavData = encodeWAV(combinedAudio, sampleRate);
-
-							// Clean up
-							await audioPlayer.destroy();
-							ws.close();
-
-							console.debug(`Streaming complete: ${chunkCount} chunks, ${combinedAudio.length} samples`);
-
-							// Call completion callback
-							if (onComplete) {
-								onComplete(wavData);
-							}
-						})();
-					}, waitTime);
-
-				} else if (msg.type === "error") {
-					const error = new Error(msg.message || "Streaming TTS failed");
-					console.error("Streaming error:", error);
-
-					await audioPlayer.destroy();
-					ws.close();
-
-					// Call error callback
-					if (onError) {
-						onError(error);
-					}
-				}
-
-			} catch (error) {
-				console.error("Error processing WebSocket message:", error);
-				await audioPlayer.destroy();
-				ws.close();
-
-				// Call error callback
-				if (onError && error instanceof Error) {
-					onError(error);
-				}
-			}
-		})();
-	};
-
-	ws.onerror = (error) => {
-		console.error("WebSocket error:", error);
-		void audioPlayer.destroy();
-		ws.close();
-
-		// Call error callback
-		if (onError) {
-			onError(new Error("WebSocket connection failed"));
+	const finishPlayback = () => {
+		if (settled) return;
+		// AudioContext time stops while paused; a wall-clock deadline would truncate audio.
+		if (player.getRemainingPlaybackTime() > 0) {
+			timer = setTimeout(finishPlayback, 100);
+			return;
+		}
+		try {
+			const wav = encodeWAV(player.getCollectedAudio(), player.getSampleRate());
+			settled = true;
+			void cleanup().then(() => options.onComplete?.(wav)).catch(error => options.onError?.(error));
+		} catch (error) {
+			fail(error);
 		}
 	};
 
+	ws.onopen = () => { if (!settled) ws.send(payload); };
+	ws.onmessage = (event) => {
+		queue = queue.then(async () => {
+			if (settled || receivedComplete) return;
+			const msg = JSON.parse(event.data);
+			if (msg.type === "error" || msg.status === "error") {
+				throw new Error(msg.message || msg.error || "Streaming narration failed");
+			}
+			if (msg.type === "audio") {
+				await player.addPCMChunk(decodeBase64ToFloat32Array(msg.data), msg.sample_rate || 24000);
+			} else if (msg.type === "finalComplete") {
+				receivedComplete = true;
+				timer = setTimeout(finishPlayback, 100);
+			}
+		}).catch(fail);
+	};
+	ws.onerror = () => fail(new Error("WebSocket connection failed"));
 	ws.onclose = () => {
-		console.debug("WebSocket connection closed");
+		// A final message may still be queued when the server closes the socket.
+		void queue.then(() => {
+			if (!settled && !receivedComplete) fail(new Error("Narration connection closed before completion. Please try again."));
+		});
 	};
 
-	// Return immediately with player instance and cancel function
 	return {
 		format: "wav",
-		player: audioPlayer,
-		cancel,
+		player,
+		cancel: () => {
+			if (settled) return;
+			settled = true;
+			void cleanup().catch(console.error);
+		},
 	};
 }
 
-/**
- * Stream script narration using WebSocket with real-time playback
- * Sends cleaned content and extracted character voice mappings to server
- * Returns player instance immediately and handles streaming in background
- * Calls onComplete/onError callbacks when streaming finishes
- */
+export function narrateTextStreaming(text: string, options: NarrationOptions): NarrationResponse {
+	return streamNarration(`/tts/stream?voice=${encodeURIComponent(options.voice)}`, text, options);
+}
+
 export function narrateScriptStreaming(
 	content: string,
 	filename: string,
 	options: ScriptNarrationOptions
 ): NarrationResponse {
-	const { defaultVoice, voices, onComplete, onError } = options;
-	const baseUrl = getApiBaseUrl();
-
-	// Convert http(s) to ws(s)
-	const wsUrl = baseUrl.replace(/^http/, "ws");
-	const apiKey = getApiKey();
-	const wsEndpoint = `${wsUrl}/tts/script/stream?api_key=${encodeURIComponent(apiKey)}`;
-
-	// Create player and WebSocket
-	const audioPlayer = new StreamingAudioPlayer();
-	const ws = new WebSocket(wsEndpoint);
-	let chunkCount = 0;
-
-	// Cancel function to stop streaming
-	const cancel = () => {
-		console.debug("Canceling script narration streaming...");
-		audioPlayer.stop();
-		ws.close();
-	};
-
-	// Prepare request payload - send cleaned content and character voices
-	const requestPayload = {
+	return streamNarration("/tts/script/stream", JSON.stringify({
 		content,
 		filename,
-		default_voice: defaultVoice,
-		voices: voices || {}
-	};
-
-	// Handle WebSocket events
-	ws.onopen = () => {
-		ws.send(JSON.stringify(requestPayload));
-		console.debug("WebSocket opened, sending script for narration");
-		console.debug(`Script: ${filename} (${content.length} characters)`);
-	};
-
-	ws.onmessage = (event) => {
-		void (async () => {
-			try {
-				// Parse JSON message
-				const msg = JSON.parse(event.data);
-
-				if (msg.type === "audio") {
-					// Decode base64 to Float32Array
-					const audioData = decodeBase64ToFloat32Array(msg.data);
-					const sampleRate = msg.sample_rate || 22050;
-
-					// Play chunk immediately for real-time playback
-					await audioPlayer.addPCMChunk(audioData, sampleRate);
-
-					chunkCount++;
-					console.debug(`Played audio chunk ${chunkCount}`);
-
-				} else if (msg.type === "finalComplete") {
-					// Wait for all scheduled audio to finish playing
-					const remainingTime = audioPlayer.getRemainingPlaybackTime();
-					console.debug(`Waiting ${remainingTime.toFixed(2)}s for playback to complete...`);
-
-					// Add small buffer to ensure last chunk completes
-					const waitTime = (remainingTime + 0.1) * 1000; // Convert to ms and add 100ms buffer
-
-					setTimeout(() => {
-						void (async () => {
-							// Get all collected audio
-							const combinedAudio = audioPlayer.getCollectedAudio();
-							const sampleRate = audioPlayer.getSampleRate();
-
-							// Encode to WAV format
-							const wavData = encodeWAV(combinedAudio, sampleRate);
-
-							// Clean up
-							await audioPlayer.destroy();
-							ws.close();
-
-							console.debug(`Script streaming complete: ${chunkCount} chunks, ${combinedAudio.length} samples`);
-
-							// Call completion callback
-							if (onComplete) {
-								onComplete(wavData);
-							}
-						})();
-					}, waitTime);
-
-				} else if (msg.type === "error") {
-					const error = new Error(msg.message || "Streaming script TTS failed");
-					console.error("Script streaming error:", error);
-
-					await audioPlayer.destroy();
-					ws.close();
-
-					// Call error callback
-					if (onError) {
-						onError(error);
-					}
-				}
-
-			} catch (error) {
-				console.error("Error processing WebSocket message:", error);
-				await audioPlayer.destroy();
-				ws.close();
-
-				// Call error callback
-				if (onError && error instanceof Error) {
-					onError(error);
-				}
-			}
-		})();
-	};
-
-	ws.onerror = (error) => {
-		console.error("WebSocket error:", error);
-		void audioPlayer.destroy();
-		ws.close();
-
-		// Call error callback
-		if (onError) {
-			onError(new Error("WebSocket connection failed"));
-		}
-	};
-
-	ws.onclose = () => {
-		console.debug("WebSocket connection closed");
-	};
-
-	// Return immediately with player instance and cancel function
-	return {
-		format: "wav",
-		player: audioPlayer,
-		cancel,
-	};
+		default_voice: options.defaultVoice,
+		voices: options.voices || {},
+	}), options);
 }

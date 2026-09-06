@@ -40,6 +40,10 @@ pnpm-debug.log*
 .cache
 .eslintcache
 
+# Tests
+reports/
+coverage/
+
 # AI
 .claude
 CLAUDE.md

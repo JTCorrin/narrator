@@ -1,14 +1,22 @@
 {
 	"name": "obsidian-narrator-plugin",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "Narrate your notes with AI voice generation",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit && node esbuild.config.mjs production",
+		"build:local": "NARRATOR_API_BASE_URL=http://192.168.5.140:8000/api/v1 pnpm run build",
+		"build:prod": "NARRATOR_API_BASE_URL=https://narrator-api-production-81e4.up.railway.app/api/v1 pnpm run build",
 		"deploy": "pnpm run build && node scripts/deploy.mjs",
+		"deploy:local": "pnpm run build:local && node scripts/deploy.mjs",
+		"deploy:prod": "pnpm run build:prod && node scripts/deploy.mjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"lint": "eslint . --ext .ts"
+		"lint": "eslint . --ext .ts",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"test:ci": "vitest run --coverage --reporter=default --reporter=junit --outputFile.junit=reports/junit.xml"
 	},
 	"keywords": [
 		"obsidian",
@@ -21,14 +29,16 @@
 	"author": "Joe",
 	"license": "MIT",
 	"devDependencies": {
+		"@types/node": "^16.11.6",
 		"@typescript-eslint/eslint-plugin": "^5.29.0",
 		"@typescript-eslint/parser": "^5.29.0",
-		"@types/node": "^16.11.6",
+		"@vitest/coverage-v8": "2",
 		"builtin-modules": "^3.3.0",
 		"esbuild": "^0.17.3",
 		"obsidian": "latest",
 		"tslib": "^2.4.0",
-		"typescript": "^4.7.4"
+		"typescript": "^4.7.4",
+		"vitest": "2"
 	},
 	"packageManager": "pnpm@8.15.0"
 }

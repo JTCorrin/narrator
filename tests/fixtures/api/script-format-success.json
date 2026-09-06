@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "script": {
+    "title": "Test",
+    "lines": [
+      { "character": "NARRATOR", "text": "Once upon a time.", "line_number": 1 },
+      { "character": "HERO", "text": "Hello!", "line_number": 2 }
+    ],
+    "characters": ["NARRATOR", "HERO"]
+  },
+  "formatted_text": "[NARRATOR] Once upon a time.\n[HERO] Hello!",
+  "error": null,
+  "processing_time": 0.5,
+  "model_used": "gpt-4o-mini"
+}

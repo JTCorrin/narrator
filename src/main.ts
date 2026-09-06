@@ -5,6 +5,7 @@ import { initApiClient, apiClient, NarratorApiError, AIModel } from "./api";
 import { AudioPlayerStatusBar } from "./components/AudioPlayerStatusBar";
 import { LoadingIndicator } from "./components/LoadingIndicator";
 import { isScriptFile, extractCharacterVoices, getCleanScriptContent } from "./utils/scriptParser";
+import { NARRATOR_API_BASE_URL } from "./config";
 
 export default class NarratorPlugin extends Plugin {
 	settings!: NarratorSettings;
@@ -25,7 +26,7 @@ export default class NarratorPlugin extends Plugin {
 
 		// Initialize API client with settings and loading callbacks
 		initApiClient({
-			baseUrl: "https://narrator-api-production-81e4.up.railway.app/api/v1",
+			baseUrl: NARRATOR_API_BASE_URL,
 			apiKey: this.settings.apiKey,
 			openRouterApiKey: this.settings.openRouterApiKey,
 			onLoadingStart: () => this.loadingIndicator?.show(),
@@ -210,7 +211,7 @@ export default class NarratorPlugin extends Plugin {
 						"wav"
 					).then(() => {
 						new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
-					});
+					}).catch(error => this.handleError(error, "Could not save narration audio"));
 
 					// Detach player from status bar
 					this.statusBarPlayer?.detachPlayer();
@@ -250,7 +251,7 @@ export default class NarratorPlugin extends Plugin {
 						"wav"
 					).then(() => {
 						new Notice(`Narration complete! Audio saved to ${this.settings.audioOutputFolder}/`);
-					});
+					}).catch(error => this.handleError(error, "Could not save narration audio"));
 
 					// Detach player from status bar
 					this.statusBarPlayer?.detachPlayer();
@@ -351,7 +352,7 @@ export default class NarratorPlugin extends Plugin {
 							new Notice(
 								`Script narration complete! Audio saved to ${this.settings.audioOutputFolder}/`
 							);
-						});
+						}).catch(error => this.handleError(error, "Could not save narration audio"));
 
 						// Detach player from status bar
 						this.statusBarPlayer?.detachPlayer();
@@ -454,7 +455,7 @@ export default class NarratorPlugin extends Plugin {
 
 		// Update API client when settings are loaded
 		initApiClient({
-			baseUrl: "https://narrator-api-production-81e4.up.railway.app/api/v1",
+			baseUrl: NARRATOR_API_BASE_URL,
 			apiKey: this.settings.apiKey,
 			openRouterApiKey: this.settings.openRouterApiKey,
 			onLoadingStart: () => this.loadingIndicator?.show(),
@@ -467,7 +468,7 @@ export default class NarratorPlugin extends Plugin {
 
 		// Update API client when settings are saved
 		initApiClient({
-			baseUrl: "https://narrator-api-production-81e4.up.railway.app/api/v1",
+			baseUrl: NARRATOR_API_BASE_URL,
 			apiKey: this.settings.apiKey,
 			openRouterApiKey: this.settings.openRouterApiKey,
 			onLoadingStart: () => this.loadingIndicator?.show(),
