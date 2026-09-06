@@ -31,7 +31,7 @@ describe("api client", () => {
 	it("getApiBaseUrl uses default when unset", () => {
 		initApiClient({ apiKey: "k" });
 		expect(getApiBaseUrl()).toBe(
-			"https://narrator-api-production-81e4.up.railway.app/api/v1"
+			"https://api.obsidian-narrator.com/api/v1"
 		);
 	});
 

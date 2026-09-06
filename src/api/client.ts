@@ -34,7 +34,7 @@ export function initApiClient(config: ApiClientConfig): void {
 export function getApiBaseUrl(): string {
 	return (
 		apiConfig?.baseUrl ||
-		"https://narrator-api-production-81e4.up.railway.app/api/v1"
+		"https://api.obsidian-narrator.com/api/v1"
 	);
 }
 

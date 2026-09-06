@@ -41,7 +41,7 @@ jobs:
 
       - name: Typecheck and build
         env:
-          NARRATOR_API_BASE_URL: https://narrator-api-production-81e4.up.railway.app/api/v1
+          NARRATOR_API_BASE_URL: https://api.obsidian-narrator.com/api/v1
         run: pnpm build
 
       - name: Unit and integration tests
