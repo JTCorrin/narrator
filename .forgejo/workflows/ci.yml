@@ -40,6 +40,8 @@ jobs:
         run: pnpm lint
 
       - name: Typecheck and build
+        env:
+          NARRATOR_API_BASE_URL: https://narrator-api-production-81e4.up.railway.app/api/v1
         run: pnpm build
 
       - name: Unit and integration tests

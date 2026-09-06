@@ -30,7 +30,9 @@ describe("api client", () => {
 
 	it("getApiBaseUrl uses default when unset", () => {
 		initApiClient({ apiKey: "k" });
-		expect(getApiBaseUrl()).toBe("http://192.168.5.140:8000/api/v1");
+		expect(getApiBaseUrl()).toBe(
+			"https://narrator-api-production-81e4.up.railway.app/api/v1"
+		);
 	});
 
 	it("returns JSON and sets auth headers", async () => {

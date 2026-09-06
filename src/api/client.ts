@@ -30,10 +30,12 @@ export function initApiClient(config: ApiClientConfig): void {
 
 /**
  * Get the API base URL
- * Hardcoded to localhost for Narrator API server
  */
 export function getApiBaseUrl(): string {
-	return apiConfig?.baseUrl || "http://192.168.5.140:8000/api/v1";
+	return (
+		apiConfig?.baseUrl ||
+		"https://narrator-api-production-81e4.up.railway.app/api/v1"
+	);
 }
 
 /**

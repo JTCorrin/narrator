@@ -1,0 +1,112 @@
+name: Release Obsidian plugin
+
+# Tag a version (e.g. git tag 1.0.1 && git push origin 1.0.1) to:
+# 1) build with the public production API URL
+# 2) sync versions.json / manifest version from the tag
+# 3) publish a GitHub Release with main.js, manifest.json, styles.css
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Plugin version to release (e.g. 1.0.1). Required for manual runs."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  NARRATOR_API_BASE_URL: https://narrator-api-production-81e4.up.railway.app/api/v1
+  PROD_API: https://narrator-api-production-81e4.up.railway.app/api/v1
+
+jobs:
+  release:
+    name: Build and publish Obsidian release assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable pnpm
+        run: corepack enable && corepack prepare pnpm@8.15.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-].*)?$ ]]; then
+            echo "Invalid version: $VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing Narrator $VERSION"
+
+      - name: Sync manifest, package.json, and versions.json
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: node scripts/prepare-release.mjs
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build production plugin
+        env:
+          NARRATOR_API_BASE_URL: ${{ env.PROD_API }}
+        run: pnpm build
+
+      - name: Verify release assets and baked API URL
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PROD_API: ${{ env.PROD_API }}
+        run: |
+          set -euo pipefail
+          test -f main.js
+          test -f manifest.json
+          test -f styles.css
+          test -f versions.json
+          python3 - <<'PY'
+          import json, os, pathlib, sys
+          version = os.environ["VERSION"]
+          prod = os.environ["PROD_API"]
+          manifest = json.loads(pathlib.Path("manifest.json").read_text())
+          versions = json.loads(pathlib.Path("versions.json").read_text())
+          package = json.loads(pathlib.Path("package.json").read_text())
+          main_js = pathlib.Path("main.js").read_text()
+          assert manifest["version"] == version, manifest
+          assert package["version"] == version, package
+          assert versions.get(version) == manifest["minAppVersion"], versions
+          assert prod in main_js, "production API URL missing from main.js"
+          assert "192.168.5.140" not in main_js, "LAN API URL must not ship in releases"
+          print("release assets OK")
+          PY
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            main.js
+            manifest.json
+            styles.css
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -2,7 +2,7 @@
 	"id": "narrator",
 	"name": "Narrator",
 	"version": "1.0.1",
-	"minAppVersion": "1.0.1",
+	"minAppVersion": "1.0.0",
 	"description": "Transform notes into AI-narrated audio. Select text for instant narration or create multi-voice character scripts.",
 	"author": "Joe",
 	"authorUrl": "https://github.com/JTCorrin",
