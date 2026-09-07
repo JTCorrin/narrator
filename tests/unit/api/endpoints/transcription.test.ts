@@ -73,6 +73,13 @@ describe("transcription stream client", () => {
 		expect(finalText).toBe("hello world");
 	});
 
+	it("preserves final text and reports the monthly quota notice", () => {
+        let result: unknown;
+        startTranscriptionStream({ onFinal: (text, message) => { result = { text, message }; } });
+        MockWebSocket.instances[0]!.emit({ type: "finalComplete", text: "saved words", limit_reached: true, message: "Monthly limit reached" });
+        expect(result).toEqual({ text: "saved words", message: "Monthly limit reached" });
+    });
+
 	it("queues frames until ready then sends stop", async () => {
 		const handle = startTranscriptionStream();
 		await Promise.resolve();

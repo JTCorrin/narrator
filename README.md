@@ -379,3 +379,10 @@ collection. The Voice setting loads the permitted catalogue from Narrator API;
 use **Refresh voices** after changing your plan. If a saved voice is no longer
 available, the plugin selects the first permitted voice. Script frontmatter must
 also use voices included with your account; the API enforces this for every request.
+
+Monthly transcription allowances are separate from narrated words: **Free: 10 minutes**,
+**Scribe: 120 minutes**, and **Author: unlimited transcription**. Accepted audio,
+including silence, counts toward usage; waiting for a worker to warm up does not.
+Free allowances reset each UTC calendar month; paid allowances reset each billing
+period. When the limit is reached, recording ends and the plugin displays a notice
+while keeping the transcript received so far.

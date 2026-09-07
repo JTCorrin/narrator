@@ -4,7 +4,7 @@ import { encodePcmBase64 } from "../../utils/micCapture";
 export interface TranscriptionStreamOptions {
 	onReady?: (sampleRate: number) => void;
 	onWord?: (text: string, startTime: number) => void;
-	onFinal?: (text: string) => void;
+	onFinal?: (text: string, limitMessage?: string) => void;
 	onError?: (error: Error) => void;
 }
 
@@ -108,7 +108,7 @@ export function startTranscriptionStream(
 				} catch {
 					/* ignore */
 				}
-				options.onFinal?.(text);
+				options.onFinal?.(text, message.limit_reached === true && typeof message.message === "string" ? message.message : undefined);
 			}
 		} catch (error) {
 			fail(error);

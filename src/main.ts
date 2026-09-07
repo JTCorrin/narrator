@@ -555,11 +555,11 @@ export default class NarratorPlugin extends Plugin {
 				onWord: (text) => {
 					this.liveInsert?.appendWord(text);
 				},
-				onFinal: (text) => {
+				onFinal: (text, limitMessage) => {
 					new Notice(
-						text.trim()
+						(limitMessage || (text.trim()
 							? "Transcription complete"
-							: "Transcription finished (no speech detected)"
+							: "Transcription finished (no speech detected)"))
 					);
 					this.finishTranscriptionCleanup();
 				},
