@@ -317,3 +317,11 @@ this command. Run `pnpm test:ci` and `pnpm build` before submitting updated asse
 The linter currently uses ESLint 9 to match its dependency support; Obsidian 1.13
 SDK types are needed for the searchable settings API despite the linter package's
 older Obsidian peer declaration.
+
+### Voices included with your account
+
+Free accounts include ten selected voices. Paid accounts unlock the full voice
+collection. The Voice setting loads the permitted catalogue from Narrator API;
+use **Refresh voices** after changing your plan. If a saved voice is no longer
+available, the plugin selects the first permitted voice. Script frontmatter must
+also use voices included with your account; the API enforces this for every request.

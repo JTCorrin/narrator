@@ -473,13 +473,29 @@ export default class NarratorPlugin extends Plugin {
 	/**
 	 * Load available voices asynchronously in background
 	 */
-	private async loadVoicesAsync(): Promise<void> {
+	private voicesRequest = 0;
+	private voicesApiKey: string | null = null;
+	cachedVoiceAccess = "operational";
+
+	async loadVoicesAsync(): Promise<void> {
+		const request = ++this.voicesRequest;
+		this.voicesApiKey = this.settings.apiKey;
+		this.cachedVoices = [];
+		this.cachedVoiceAccess = "operational";
 		try {
 			console.debug("Loading voices from API...");
-			this.cachedVoices = await apiClient.narration.getVoices();
+			const catalogue = await apiClient.narration.getVoiceCatalogue();
+			if (request !== this.voicesRequest) return;
+			this.cachedVoices = catalogue.voices;
+			this.cachedVoiceAccess = catalogue.voice_access || "operational";
+			if (this.cachedVoices.length && !this.cachedVoices.includes(this.settings.voice)) {
+				this.settings.voice = this.cachedVoices[0]!;
+				await this.saveData(this.settings);
+			}
 		} catch (error) {
 			console.error("Failed to load voices:", error);
-			// Keep existing cached voices if API call fails
+			// Never retain a previous account's voices after an authentication failure.
+			if (request !== this.voicesRequest) return;
 			if (this.cachedVoices.length === 0) {
 				// Set empty array on failure - user will see "Loading..." in settings
 				this.cachedVoices = [];
@@ -634,5 +650,6 @@ export default class NarratorPlugin extends Plugin {
 			onLoadingStart: () => this.loadingIndicator?.show(),
 			onLoadingEnd: () => this.loadingIndicator?.hide(),
 		});
+		if (this.voicesApiKey !== this.settings.apiKey) await this.loadVoicesAsync();
 	}
 }

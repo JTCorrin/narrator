@@ -28,7 +28,7 @@ vi.mock("obsidian", () => {
 				return {
 					inputEl: { type: "text" },
 					setPlaceholder() { return this; }, setValue() { return this; },
-					setDisabled() { return this; }, addOption() { return this; },
+					setDisabled() { return this; }, addOption() { return this; }, addOptions() { return this; }, selectEl: { replaceChildren() {} },
 					setIcon() { return this; }, setTooltip() { return this; },
 					setButtonText() { return this; }, onClick() { return this; },
 					onChange(callback: (value: string) => Promise<void>) { row.change = callback; return this; },

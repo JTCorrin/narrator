@@ -16,6 +16,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 	plugin: NarratorPlugin;
 	voicePreviewPlayer: AudioPlayerSettingsControl | null = null;
 	private cleanups: (() => void)[] = [];
+	private refreshVoiceControls: (() => void) | null = null;
 
 	constructor(app: App, plugin: NarratorPlugin) {
 		super(app, plugin);
@@ -35,6 +36,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 							.onChange(async value => {
 							this.plugin.settings.apiKey = value;
 							await this.plugin.saveSettings();
+							this.refreshVoiceControls?.();
 						});
 						text.inputEl.type = "password";
 					}).addButton(button => button.setIcon("external-link").setTooltip("Get API key")
@@ -43,16 +45,33 @@ export class NarratorSettingTab extends PluginSettingTab {
 			},
 			{
 				name: "Voice",
-				desc: voices.length ? `Select the default voice for narration (${voices.length} available)` : "No voices loaded. Check your connection and reload the plugin.",
+				desc: voices.length ? (this.plugin.cachedVoiceAccess === "free" ? "Your free account includes 10 voices. Upgrade to unlock all voices." : `Select the default voice for narration (${voices.length} available to your account)`) : "No voices loaded. Check your connection and reload the plugin.",
 				render: setting => {
 					setting.addDropdown(dropdown => {
-						if (!voices.length) { dropdown.addOption("", "No voices available").setDisabled(true); return; }
-						for (const voice of voices) dropdown.addOption(voice, voice.charAt(0).toUpperCase() + voice.slice(1));
-						dropdown.setValue(this.plugin.settings.voice).onChange(async value => {
+						this.refreshVoiceControls = () => {
+							const available = this.plugin.cachedVoices;
+							dropdown.selectEl.replaceChildren();
+							dropdown.addOptions(available.length ? Object.fromEntries(available.map(v => [v, v])) : { "": "No voices available" });
+							dropdown.setDisabled(!available.length).setValue(this.plugin.settings.voice);
+							setting.setDesc(this.plugin.cachedVoiceAccess === "free"
+								? "Your free account includes 10 voices. Upgrade to unlock all voices."
+								: `${available.length} voices available to your account.`);
+						};
+						this.refreshVoiceControls();
+						dropdown.onChange(async value => {
 							this.plugin.settings.voice = value;
 							await this.plugin.saveSettings();
 						});
 					});
+					setting.addButton(button => button.setButtonText("Refresh voices").onClick(async () => {
+						await this.plugin.loadVoicesAsync();
+						this.refreshVoiceControls?.();
+					}));
+					if (this.plugin.cachedVoiceAccess === "free") {
+						setting.addButton(button => button.setButtonText("Upgrade").onClick(() => {
+							window.open(`${NARRATOR_API_ORIGIN}/#pricing`, "_blank");
+						}));
+					}
 					if (!voices.length) return;
 					const container = setting.descEl.createDiv({ cls: "narrator-voice-preview" });
 					const player = new AudioPlayerSettingsControl(container, this.plugin);
@@ -120,6 +139,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 	}
 
 	hide(): void {
+		this.refreshVoiceControls = null;
 		for (const cleanup of this.cleanups.splice(0)) cleanup();
 		this.voicePreviewPlayer?.destroy();
 		this.voicePreviewPlayer = null;

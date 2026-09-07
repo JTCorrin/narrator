@@ -44,13 +44,19 @@ export async function narrateFile(
 
 /**
  * Get list of available voices
- * (This is a static list for now, could be fetched from API in the future)
+ * The backend filters this catalogue for the authenticated account.
  */
+export interface VoiceCatalogue {
+	voices: string[];
+	voice_access?: string;
+}
+
+export async function getVoiceCatalogue(): Promise<VoiceCatalogue> {
+	return apiRequest<VoiceCatalogue>("/tts/voices", { method: "GET" });
+}
+
 export async function getVoices(): Promise<string[]> {
-	const { voices } = await apiRequest<{ voices: string[] }>("/tts/voices", {
-		method: "GET"
-	});
-	return voices
+	return (await getVoiceCatalogue()).voices;
 }
 
 /**
