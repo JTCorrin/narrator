@@ -27,6 +27,12 @@ _Click the image above to watch the demo video_
 - **Multiple voices**: Choose from various AI voices with instant preview in
   settings
 
+### 🎤 Live Speech-to-Text (ASR)
+
+Dictate into your Markdown notes on Obsidian desktop. Narrator transcribes your
+microphone audio into text at the cursor as words arrive, using the same Narrator
+API key as narration.
+
 ### 🎭 AI-Powered Script Generation
 
 - **Automatic character detection**: AI analyzes your writing and identifies
@@ -102,12 +108,35 @@ The public speech demos are available without a subscription.
 1. Right-click any markdown note in your file explorer
 2. Select **"Narrate"** from the context menu
 3. Watch as the status bar shows streaming audio controls
-4. Audio starts playing immediately and saves automatically
+4. Audio plays as it arrives and saves automatically
 
 That's it! Your narration will be saved to your configured audio output folder
 (default: `narration-audio/`).
 
 ## 📖 Usage Guide
+
+### Dictate into a note
+
+1. On Obsidian desktop, open a Markdown note and place the cursor where you want
+   the transcript inserted.
+2. Click the microphone ribbon icon or run **Narrator: Record transcription**
+   from the command palette.
+3. Allow microphone access when prompted, then speak. Audio is sent to Narrator's
+   speech service for transcription.
+4. Click the recording status bar's stop control, or run the command again, to
+   stop. Wait for **Transcription complete** so the final words can arrive.
+
+Microphone transcription currently requires the desktop app. It uses your
+Narrator API key; an OpenRouter key is not required. Developers can use the same
+[ASR WebSocket API](https://narrator.corrin.ai/docs#stt-stream).
+
+### Speech startup time
+
+After inactivity, the speech service may need a minute or more to warm up before
+narration or transcription responds. Startup time varies; immediate playback is
+not guaranteed. If a request times out, wait briefly and try again. During
+transcription, text can also arrive after you stop recording while the final
+audio is processed.
 
 ### Narrate Full Notes
 
@@ -196,6 +225,7 @@ BOB VOICE: "Wonderstruck"
 
 Access Narrator features via **Cmd/Ctrl + P**:
 
+- **Record transcription** - Start or stop microphone dictation on desktop
 - **Narrate active note** - Narrate the currently open file
 - **Create script from active note** - Generate AI script from current file
 - **Narrate script** - Multi-voice narration (only visible when viewing a

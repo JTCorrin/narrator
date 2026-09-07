@@ -60,7 +60,7 @@ describe("settings search and older-host fallback", () => {
 	it("indexes all editable fields without starting voice playback", () => {
 		const { tab } = setup();
 		expect(tab.getSettingDefinitions().map(def => def.name)).toEqual([
-			"Narrator API key", "Subscription and usage", "Voice", "Audio output folder", "OpenRouter API key", "AI model",
+			"Narrator API key", "Subscription and usage", "Speech startup", "Voice", "Audio output folder", "OpenRouter API key", "AI model",
 		]);
 		expect(controls.rows).toHaveLength(0);
 		expect(controls.previewVoice).not.toHaveBeenCalled();

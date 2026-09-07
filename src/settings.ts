@@ -53,6 +53,11 @@ export class NarratorSettingTab extends PluginSettingTab {
 				},
 			},
 			{
+				name: "Speech startup",
+				desc: "After inactivity, narration and transcription may take a minute or more to respond while the speech service warms up. If a request times out, wait briefly and try again.",
+				render: () => undefined,
+			},
+			{
 				name: "Voice",
 				desc: voices.length ? (this.plugin.cachedVoiceAccess === "free" ? "Your free account includes 10 voices. Upgrade to unlock all voices." : `Select the default voice for narration (${voices.length} available to your account)`) : "No voices loaded. Check your connection and reload the plugin.",
 				render: setting => {
