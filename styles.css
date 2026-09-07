@@ -189,3 +189,6 @@
 .narrator-player-progress-fill {
 	width: var(--progress-width, 0%);
 }
+
+.narrator-settings-player-wrapper { flex-wrap: wrap; }
+.narrator-preview-status { flex-basis: 100%; order: 5; color: var(--text-muted); font-size: var(--font-ui-small); }

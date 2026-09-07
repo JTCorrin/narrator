@@ -3,6 +3,7 @@ import type NarratorPlugin from "./main";
 import type { AIModel } from "./api";
 import { AudioPlayerSettingsControl } from "./components/AudioPlayerSettingsControl";
 import { NARRATOR_API_ORIGIN } from "./config";
+import { SpeechReadiness } from "./api/speechReadiness";
 
 // Structurally compatible with Obsidian 1.13's render definitions. The same
 // callbacks also render the fallback tab without invoking newer host APIs.
@@ -15,6 +16,8 @@ interface NarratorSettingDefinition {
 export class NarratorSettingTab extends PluginSettingTab {
 	plugin: NarratorPlugin;
 	voicePreviewPlayer: AudioPlayerSettingsControl | null = null;
+	private readiness: SpeechReadiness | null = null;
+	private restartReadiness: (() => void) | null = null;
 	private cleanups: (() => void)[] = [];
 	private refreshVoiceControls: (() => void) | null = null;
 
@@ -29,14 +32,17 @@ export class NarratorSettingTab extends PluginSettingTab {
 		return [
 			{
 				name: "Narrator API key",
-				desc: "Paste the Narrator API key delivered after checkout.",
+				desc: "Paste your free or paid Narrator API key.",
 				render: setting => {
 					setting.addText(text => {
 						text.setPlaceholder("Enter your API key").setValue(this.plugin.settings.apiKey)
 							.onChange(async value => {
+							this.readiness?.stop();
+							this.voicePreviewPlayer?.cancelPending();
 							this.plugin.settings.apiKey = value;
 							await this.plugin.saveSettings();
 							this.refreshVoiceControls?.();
+							this.restartReadiness?.();
 						});
 						text.inputEl.type = "password";
 					}).addButton(button => button.setIcon("external-link").setTooltip("Get API key")
@@ -55,7 +61,33 @@ export class NarratorSettingTab extends PluginSettingTab {
 			{
 				name: "Speech startup",
 				desc: "After inactivity, narration and transcription may take a minute or more to respond while the speech service warms up. If a request times out, wait briefly and try again.",
-				render: () => undefined,
+				render: setting => {
+					const restart = () => {
+						this.readiness?.stop();
+						if (!this.plugin.settings.apiKey.trim()) {
+							this.readiness = null;
+							setting.setDesc("Enter an API key to check speech readiness.");
+							return;
+						}
+						this.readiness = new SpeechReadiness(text => { setting.setDesc(text); });
+						this.readiness.start();
+					};
+					this.restartReadiness = restart;
+					setting.addButton(button => button.setButtonText("Retry").onClick(restart));
+					setting.addButton(button => button.setButtonText("Pause checks").onClick(() => {
+						this.readiness?.stop();
+						this.voicePreviewPlayer?.cancelPending();
+						setting.setDesc("Readiness checks paused. Click retry to resume.");
+					}));
+					restart();
+					return () => {
+						if (this.restartReadiness === restart) {
+							this.readiness?.stop();
+							this.readiness = null;
+							this.restartReadiness = null;
+						}
+					};
+				},
 			},
 			{
 				name: "Voice",
@@ -86,15 +118,21 @@ export class NarratorSettingTab extends PluginSettingTab {
 							window.open(`${NARRATOR_API_ORIGIN}/#pricing`, "_blank");
 						}));
 					}
-					if (!voices.length) return;
 					const container = setting.descEl.createDiv({ cls: "narrator-voice-preview" });
-					const player = new AudioPlayerSettingsControl(container, this.plugin);
+					let fallback: SpeechReadiness | null = null;
+					const player = new AudioPlayerSettingsControl(container, this.plugin, () => {
+						// Settings search can render the Voice row without the startup row.
+						if (this.readiness) return this.readiness.ensureReady();
+						fallback ??= new SpeechReadiness(() => undefined);
+						return fallback.ensureReady();
+					});
 					this.voicePreviewPlayer = player;
 					setting.addButton(button => button.setButtonText("Preview voice").onClick(() => {
 						void player.previewVoice(this.plugin.settings.voice);
 					}));
 					return () => {
 						player.destroy();
+						fallback?.stop();
 						if (this.voicePreviewPlayer === player) this.voicePreviewPlayer = null;
 					};
 				},
@@ -153,6 +191,9 @@ export class NarratorSettingTab extends PluginSettingTab {
 	}
 
 	hide(): void {
+		this.readiness?.stop();
+		this.readiness = null;
+		this.restartReadiness = null;
 		this.refreshVoiceControls = null;
 		for (const cleanup of this.cleanups.splice(0)) cleanup();
 		this.voicePreviewPlayer?.destroy();

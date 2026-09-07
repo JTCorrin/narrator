@@ -134,6 +134,12 @@ Narrator API key; an OpenRouter key is not required. Developers can use the same
 
 ### Speech startup time
 
+While Narrator settings are open, **Speech startup** checks readiness automatically.
+It shows when the service is warming up or ready, with **Retry** and **Pause checks**
+controls. **Preview voice** waits for readiness before generating audio and displays
+its progress in settings. The stop control cancels a queued preview, and closing
+settings stops readiness polling. Generated previews use your narration allowance.
+
 After inactivity, the speech service may need a minute or more to warm up before
 narration or transcription responds. Startup time varies; immediate playback is
 not guaranteed. If a request times out, wait briefly and try again. During

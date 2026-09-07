@@ -1,6 +1,8 @@
 import { Notice } from "obsidian";
 import type NarratorPlugin from "../main";
 import { apiClient } from "../api";
+import { abortable } from "../api/speechReadiness";
+import { getApiKey } from "../api/client";
 
 const VOICE_PREVIEW_TEXT =
 	"Hello. I'm one of the voices available in Obsidian Narrator. Do you like how I sound?";
@@ -14,6 +16,8 @@ export class AudioPlayerSettingsControl {
 	private plugin: NarratorPlugin;
 	private isPlaying = false;
 	private previewRequest = 0;
+	private previewAbort: AbortController | null = null;
+	private statusDisplay: HTMLElement;
 
 	private playPauseButton: HTMLElement;
 	private stopButton: HTMLElement;
@@ -25,7 +29,7 @@ export class AudioPlayerSettingsControl {
 	private currentAudio: HTMLAudioElement | null = null;
 	private currentAudioUrl: string | null = null;
 
-	constructor(container: HTMLElement, plugin: NarratorPlugin) {
+	constructor(container: HTMLElement, plugin: NarratorPlugin, private ensureReady: () => Promise<void> = () => Promise.resolve()) {
 		this.container = container;
 		this.plugin = plugin;
 
@@ -40,6 +44,7 @@ export class AudioPlayerSettingsControl {
 			".narrator-player-progress-fill"
 		) as HTMLElement;
 		this.timeDisplay = this.createTimeDisplay();
+		this.statusDisplay = this.container.createDiv({ cls: "narrator-preview-status", attr: { role: "status", "aria-live": "polite" } });
 
 		// Add all elements to container
 		this.container.appendChild(this.playPauseButton);
@@ -147,7 +152,15 @@ export class AudioPlayerSettingsControl {
 	/**
 	 * Stop playback
 	 */
+	public cancelPending(): void {
+		this.previewRequest++;
+		this.previewAbort?.abort();
+		this.previewAbort = null;
+	}
+
 	private stop(): void {
+		this.cancelPending();
+		this.statusDisplay.setText("Preview stopped.");
 		if (this.currentAudio) {
 			this.currentAudio.pause();
 			this.currentAudio.currentTime = 0;
@@ -210,10 +223,16 @@ export class AudioPlayerSettingsControl {
 	 * @param voiceName Voice to preview
 	 */
 	public async previewVoice(voiceName: string): Promise<void> {
-		const request = ++this.previewRequest;
+		if (!voiceName) { this.statusDisplay.setText("Choose a voice, or refresh the voice list."); return; }
+		this.stop();
+		const request = this.previewRequest;
+		const controller = new AbortController();
+		this.previewAbort = controller;
 		try {
-			// Stop any currently playing audio
-			this.stop();
+			const apiKey = getApiKey();
+			this.statusDisplay.setText("Waiting for speech readiness. Stop cancels this preview.");
+			await abortable(this.ensureReady(), controller.signal);
+			if (request !== this.previewRequest || getApiKey() !== apiKey) return;
 
 			// Clean up previous audio
 			if (this.currentAudioUrl) {
@@ -225,17 +244,22 @@ export class AudioPlayerSettingsControl {
 			// Show loading in status bar
 			this.plugin.loadingIndicator?.show();
 
+			this.statusDisplay.setText("Generating voice preview using your narration allowance…");
+
 			// Generate preview audio
-			const response = await apiClient.narration.narrateText(
-				VOICE_PREVIEW_TEXT,
-				{ voice: voiceName }
-			);
+			let generationTimer: number | undefined;
+			const response = await abortable(Promise.race([
+				apiClient.narration.narrateText(VOICE_PREVIEW_TEXT, { voice: voiceName }),
+				new Promise<never>((_, reject) => {
+					generationTimer = window.setTimeout(() => reject(new Error("Voice preview timed out. Check speech readiness and try again.")), 180000);
+				}),
+			]), controller.signal).finally(() => { if (generationTimer) window.clearTimeout(generationTimer); });
 
 			// Hide loading
 			this.plugin.loadingIndicator?.hide();
 
 			// The settings row may have closed or another preview may have started.
-			if (request !== this.previewRequest) return;
+			if (request !== this.previewRequest || getApiKey() !== apiKey) return;
 
 			// Check if audioData exists
 			if (!response.audioData) {
@@ -265,6 +289,8 @@ export class AudioPlayerSettingsControl {
 				this.playPauseButton.setAttribute("aria-label", "Play preview");
 			});
 
+			this.statusDisplay.setText("Playing voice preview.");
+
 			// Auto-play the preview
 			await this.currentAudio.play();
 			this.isPlaying = true;
@@ -283,6 +309,7 @@ export class AudioPlayerSettingsControl {
 
 			// Reset UI state
 			this.stop();
+			this.statusDisplay.setText(`Preview failed: ${errorMessage}`);
 		}
 	}
 
@@ -290,7 +317,7 @@ export class AudioPlayerSettingsControl {
 	 * Clean up when settings are closed
 	 */
 	public destroy(): void {
-		this.previewRequest++;
+		this.cancelPending();
 		// Stop and clean up audio
 		if (this.currentAudio) {
 			this.currentAudio.pause();
