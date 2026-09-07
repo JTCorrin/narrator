@@ -69,6 +69,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Test
+        run: pnpm test
+
       - name: Build production plugin
         env:
           NARRATOR_API_BASE_URL: ${{ env.PROD_API }}
@@ -97,6 +100,7 @@ jobs:
           assert versions.get(version) == manifest["minAppVersion"], versions
           assert prod in main_js, "production API URL missing from main.js"
           assert "192.168.5.140" not in main_js, "LAN API URL must not ship in releases"
+          assert "stripe-preview" not in main_js, "preview API URL must not ship in releases"
           print("release assets OK")
           PY
 

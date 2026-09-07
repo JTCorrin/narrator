@@ -29,7 +29,7 @@ export class NarratorSettingTab extends PluginSettingTab {
 		return [
 			{
 				name: "Narrator API key",
-				desc: "Enter your API key for the narration service (if required)",
+				desc: "Paste the Narrator API key delivered after checkout.",
 				render: setting => {
 					setting.addText(text => {
 						text.setPlaceholder("Enter your API key").setValue(this.plugin.settings.apiKey)
@@ -40,7 +40,16 @@ export class NarratorSettingTab extends PluginSettingTab {
 						});
 						text.inputEl.type = "password";
 					}).addButton(button => button.setIcon("external-link").setTooltip("Get API key")
-						.onClick(() => { window.open(NARRATOR_API_ORIGIN, "_blank"); }));
+						.onClick(() => { window.open(`${NARRATOR_API_ORIGIN}/#pricing`, "_blank"); }));
+				},
+			},
+			{
+				name: "Subscription and usage",
+				desc: "Check your word allowance, manage payments, or cancel your subscription using your Narrator API key.",
+				render: setting => {
+					setting.addButton(button => button.setButtonText("Manage billing").onClick(() => {
+						window.open(`${NARRATOR_API_ORIGIN}/billing`, "_blank");
+					}));
 				},
 			},
 			{

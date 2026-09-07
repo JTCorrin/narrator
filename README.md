@@ -65,6 +65,22 @@ _Click the image above to watch the demo video_
 2. **OpenRouter API Key** (optional): For AI script generation with model
    selection
 
+### Get your Narrator key
+
+Choose Scribe ($9/month, 30,000 narrated words) or Author ($24/month,
+100,000 narrated words) at [narrator.corrin.ai](https://narrator.corrin.ai/#pricing).
+Both paid plans include the full voice collection. After Stripe checkout, copy
+and save the API key shown in the same browser, then paste it into Narrator's
+settings and click **Refresh voices**. The key is not sent by email.
+
+Open **Subscription and usage → Manage billing** in plugin settings to check
+usage, update payment details, view invoices, or cancel. Enter your Narrator API
+key on that page. Cancellation keeps access until the end of the paid period.
+Monthly words do not roll over; OpenRouter charges are separate.
+
+The Free plan includes 10 voices; new free signups currently join the launch list.
+The public speech demos are available without a subscription.
+
 ### Install from Community Plugins
 
 1. Open **Settings → Community plugins**
