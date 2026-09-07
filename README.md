@@ -84,7 +84,9 @@ usage, update payment details, view invoices, or cancel. Enter your Narrator API
 key on that page. Cancellation keeps access until the end of the paid period.
 Monthly words do not roll over; OpenRouter charges are separate.
 
-The Free plan includes 10 voices; new free signups currently join the launch list.
+The [Free plan](https://narrator.corrin.ai/free) provides an API key with 2,500
+narrated words per UTC calendar month and 10 voices, with no payment details
+required. Save the key shown in your browser; it is not sent by email.
 The public speech demos are available without a subscription.
 
 ### Install from Community Plugins
