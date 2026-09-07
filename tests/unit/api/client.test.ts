@@ -31,7 +31,7 @@ describe("api client", () => {
 	it("getApiBaseUrl uses default when unset", () => {
 		initApiClient({ apiKey: "k" });
 		expect(getApiBaseUrl()).toBe(
-			"https://api.obsidian-narrator.com/api/v1"
+			"https://narrator.corrin.ai/api/v1"
 		);
 	});
 

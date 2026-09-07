@@ -7,7 +7,7 @@
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit && node esbuild.config.mjs production",
 		"build:local": "NARRATOR_API_BASE_URL=http://192.168.5.140:8000/api/v1 pnpm run build",
-		"build:prod": "NARRATOR_API_BASE_URL=https://api.obsidian-narrator.com/api/v1 pnpm run build",
+		"build:prod": "NARRATOR_API_BASE_URL=https://narrator.corrin.ai/api/v1 pnpm run build",
 		"deploy": "pnpm run build && node scripts/deploy.mjs",
 		"deploy:local": "pnpm run build:local && node scripts/deploy.mjs",
 		"deploy:prod": "pnpm run build:prod && node scripts/deploy.mjs",

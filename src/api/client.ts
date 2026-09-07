@@ -34,7 +34,7 @@ export function initApiClient(config: ApiClientConfig): void {
 export function getApiBaseUrl(): string {
 	return (
 		apiConfig?.baseUrl ||
-		"https://api.obsidian-narrator.com/api/v1"
+		"https://narrator.corrin.ai/api/v1"
 	);
 }
 

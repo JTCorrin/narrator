@@ -19,8 +19,8 @@ permissions:
   contents: write
 
 env:
-  NARRATOR_API_BASE_URL: https://api.obsidian-narrator.com/api/v1
-  PROD_API: https://api.obsidian-narrator.com/api/v1
+  NARRATOR_API_BASE_URL: https://narrator.corrin.ai/api/v1
+  PROD_API: https://narrator.corrin.ai/api/v1
 
 jobs:
   release:

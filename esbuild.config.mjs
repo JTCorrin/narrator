@@ -12,7 +12,7 @@ const prod = process.argv[2] === "production";
 
 const LOCAL_API = "http://192.168.5.140:8000/api/v1";
 const PROD_API =
-	"https://api.obsidian-narrator.com/api/v1";
+	"https://narrator.corrin.ai/api/v1";
 
 // Default to the public API so accidental builds are submission-safe.
 // Local LAN testing: pnpm run build:local / deploy:local
